@@ -11,85 +11,57 @@ Utrecht is the first (and currently only) city.
 
 ## Current state
 
-There is a **single-file HTML prototype** at `prototype/utrecht-day-out.html`.
-It was built conversationally in Claude.ai's artifact sandbox and works there,
-but the whole point of moving to a real repo is to get it running (and
-debuggable) in an actual browser with devtools, since the sandbox couldn't be
-inspected directly.
-
-**Known bug, unresolved:** the map pins do not respond to clicks, in both the
-Claude.ai artifact preview and a locally downloaded copy opened directly as a
-file. Several fixes were tried blind (Leaflet's built-in marker click
-handling, binding click listeners directly to marker DOM nodes, and finally
-rebuilding pins as plain absolutely-positioned `<div>`s with their own native
-click listeners, no Leaflet marker involved at all) — none confirmed fixed,
-because there was no way to actually run the page in a browser and inspect it
-during that conversation.
-
-**Your first job is not to guess again — it's to reproduce and observe:**
-1. Serve the prototype over a real local dev server (not `file://` — see
-   below, this may also matter for the tile-loading 403 that showed up when
-   testing via `file://`).
-2. Open it in an actual browser with devtools open.
-3. Click a pin and read the console. Check for JS errors, check whether the
-   click listener fires at all (add a `console.log` if needed), check whether
-   `openPanel()` runs and what `document.getElementById('panel')` looks like
-   in the Elements panel when it "opens."
-4. Only then fix the actual root cause. If it turns out to be something like
-   a CSS stacking/pointer-events issue, a bundler/module problem introduced
-   during the rewrite, or something else entirely — that's fine, just confirm
-   it with the devtools before changing code.
-
-## Suggested project setup
-
-The prototype is intentionally a single dependency-free HTML file so it could
-run as a Claude.ai artifact. For real development, restructure it into a
-proper small project:
+A **Vite project** (plain JS, no framework). `npm install && npm run dev`.
 
 ```
-npm create vite@latest . -- --template vanilla
-```
-
-(Vite gives a real local dev server with hot reload, which avoids `file://`
-protocol issues entirely — including likely fixing map tile loading, since
-tile providers can be picky about requests with no proper origin/referrer.)
-
-Suggested structure once migrated:
-
-```
-/index.html
+/index.html         markup for all three screens (start / game / summary)
+/style.css          full stylesheet
+/vite.config.js
 /src
-  main.js          # app bootstrap, screen/flow wiring
-  state.js         # game state, clamp/format helpers
-  map.js           # Leaflet init, tile layer + fallback, pin overlay, positioning
-  locations.js      # LOCATIONS data (see content spec below)
-  activities.js     # doActivity(), travel time calc, random outcome resolution
-  ui.js            # rendering: stat bar, panel, summary/journal screens
-/style.css
+  main.js           app bootstrap, screen/flow wiring
+  state.js          game state, clamp/format helpers
+  locations.js      LOCATIONS data, categories, travel flavour text
+  activities.js     travel cost, activity resolution, scoring
+  map.js            MapLibre init, pin markers, player marker
+  ui.js             stat bar, activity panel, summary/journal rendering
 ```
+
+`prototype/utrecht-day-out.html` is the original single-file version, kept as
+a reference. It is no longer the thing you run.
+
+Module boundaries: `map.js` takes an `onSelect` callback rather than importing
+`ui.js`, so the imports stay acyclic (`main` -> `ui` -> `activities`/`map` ->
+`state`/`locations`).
+
+**The pin-click bug is fixed.** It was never a click-handling problem: `#map`
+was `position:absolute` with `z-index:auto`, so it created no stacking context
+and Leaflet's panes (z-index 200-700) painted over the pin layer and the
+panel. Both were present and receiving clicks the whole time, just invisible.
+`#map` now carries `z-index:0`. Note that `elementFromPoint` reports the pins
+as topmost even when they are painted underneath, so DOM inspection *confirms
+the wrong thing* here — screenshots are the only reliable check.
+
+### Map library
+
+**MapLibre GL JS** (npm) with **OpenFreeMap**'s `positron` vector style, which
+needs no API key and suits the warm-paper palette. Two things to know:
+
+- MapLibre locates its Web Worker relative to `import.meta.url`, which points
+  into the bundle where no worker file exists. It then 404s and the map
+  renders *nothing at all, with no error* — a blank basemap with working pins.
+  `src/map.js` sets `config.WORKER_URL` from a `?worker&url` import to fix
+  this; `vite.config.js` sets `worker.format: 'es'` to match.
+- MapLibre serves 512px tiles, so a zoom level covers half the ground Leaflet
+  covered at the same number. `DEFAULT_ZOOM` is 13.3, framing the city the way
+  the prototype's Leaflet 14.3 did.
+
+CARTO's Voyager tiles (used by the prototype) now require an API key and serve
+an "API KEY REQUIRED" watermark with HTTP 200, so a `tileerror` fallback can
+never detect it. Don't go back to them without a key.
 
 Keep it plain JS/HTML/CSS (no framework needed) unless you have a strong
 reason to reach for one — this app has one screen with a few states, some
 DOM updates, and a map. A framework would add more surface area, not less.
-
-### Map library
-
-Currently uses **Leaflet** (via CDN) with **CARTO's Voyager raster tiles**
-as the primary source and OpenStreetMap's standard tile server as a silent
-fallback (`tileerror` event) if CARTO ever fails. This was chosen after an
-earlier attempt with MapLibre GL JS failed with
-`AJAXError: Request object could not be cloned` inside the Claude.ai artifact
-sandbox — that error is characteristic of MapLibre's Web Worker-based tile
-fetching breaking in restricted/sandboxed iframe contexts. In a normal
-browser + real dev server, MapLibre GL JS (vector tiles, nicer styling
-control, e.g. via OpenFreeMap or MapTiler) may well be worth revisiting now
-that you're not fighting a sandboxed iframe. Your call — Leaflet + raster
-tiles is simpler and already has working pan/zoom/tile logic in the
-prototype; MapLibre is more capable if you want custom map styling later.
-
-Either way: **install the map library via npm, not a CDN `<script>` tag**,
-once you're in a bundled project — it's more reliable and lets you pin
-versions properly.
 
 ## Game design spec (from the prototype — carry this forward)
 
@@ -144,14 +116,15 @@ Palette and type choices from the prototype, worth keeping consistent:
 
 ## Near-term roadmap (not urgent, in rough priority order)
 
-1. Fix the pin-click bug for real, with a real browser + devtools.
-2. Get map tiles loading reliably from a proper dev server / production host
-   (should mostly resolve itself once off `file://`).
-3. Mobile layout pass — the bottom-sheet panel exists in CSS but hasn't been
-   tested on a real device.
-4. Persist a finished day (e.g. via `localStorage` or a simple backend) so
+1. **Mobile layout pass.** The bottom-sheet panel works, but the top bar
+   breaks on a phone: the stat strip wraps to roughly 200px tall and leaves
+   only a sliver of map. Observed at 390x844, not yet fixed.
+2. **Overlapping pins.** At the default zoom, four or five pins stack on top
+   of each other around Dom / Neude / Oudegracht, so the buried ones can't be
+   clicked at all. Needs spreading, clustering, or zoom-dependent offsets.
+3. Persist a finished day (e.g. via `localStorage` or a simple backend) so
    people can compare runs / share a result.
-5. A second city (Amsterdam or Delft are natural next picks) — the data
+4. A second city (Amsterdam or Delft are natural next picks) — the data
    model already supports multiple cities via the city-select screen, which
    currently only unlocks Utrecht.
 

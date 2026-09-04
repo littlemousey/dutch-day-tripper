@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>A Day in Utrecht</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div id="screen-start" class="screen active">
+    <div class="start-card">
+      <div class="eyebrow">Interactive day trip</div>
+      <h1 class="start-title">A Day in a<br><em>Dutch City</em></h1>
+      <p class="start-sub">Pick a city, land with a modest budget and a full day ahead, and see where your feet (and your bike bell) take you. Every choice costs time, money, or energy — spend them well.</p>
+      <div class="city-row">
+        <div class="city-chip active">Utrecht</div>
+        <div class="city-chip">Amsterdam — soon</div>
+        <div class="city-chip">Rotterdam — soon</div>
+        <div class="city-chip">Delft — soon</div>
+      </div>
+      <button class="start-btn" id="btn-go-utrecht">Start your day in Utrecht →</button>
+    </div>
+  </div>
+
+  <!-- INTRO MODAL -->
+  <div class="modal-veil" id="intro-modal">
+    <div class="modal-card">
+      <h2>09:00 — Utrecht Centraal</h2>
+      <p>The train doors hiss open onto a platform full of bicycles, bells, and the smell of fresh <em>stroopwafels</em> from a kiosk somewhere behind you. You've got the whole day in Utrecht ahead of you.</p>
+      <p>You're carrying <strong>€70</strong> for the day, and you're fresh — full energy, open mind. The city closes up around <strong>22:00</strong>, so plan your route with a little care. The map shows what's worth your time; tap a pin to see what's there.</p>
+      <div class="modal-actions">
+        <button class="btn primary" id="btn-begin">Step outside →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="screen-game" class="screen">
+    <div id="topbar">
+      <div class="tb-title">Utrecht <span>·</span> a day out</div>
+      <div class="stat-strip">
+        <div class="stat"><div class="stat-label">Time</div><div class="stat-value" id="stat-time">09:00</div></div>
+        <div class="stat"><div class="stat-label">Budget</div><div class="stat-value" id="stat-money">€70</div></div>
+        <div class="stat"><div class="stat-label">Energy</div><div class="stat-value" id="stat-energy">100</div></div>
+        <div class="stat"><div class="stat-label">Mood</div><div class="stat-value" id="stat-mood">50</div></div>
+      </div>
+      <button id="end-day-btn">End the day</button>
+    </div>
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="panel">
+        <div class="panel-head">
+          <button class="close-x" id="panel-close">✕</button>
+          <div class="panel-cat" id="panel-cat">CATEGORY</div>
+          <h3 class="panel-title" id="panel-title">Location</h3>
+          <div class="panel-travel" id="panel-travel"></div>
+        </div>
+        <div class="panel-body" id="panel-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY SCREEN -->
+  <div id="screen-summary" class="screen">
+    <div class="summary-card">
+      <div class="summary-eyebrow" id="sum-eyebrow">22:00 · The day is done</div>
+      <div class="summary-tier" id="sum-tier">—</div>
+      <div class="summary-stats">
+        <div class="sstat"><div class="sstat-val" id="sum-mood">0</div><div class="sstat-lab">Final mood</div></div>
+        <div class="sstat"><div class="sstat-val" id="sum-visited">0</div><div class="sstat-lab">Places seen</div></div>
+        <div class="sstat"><div class="sstat-val" id="sum-money">€0</div><div class="sstat-lab">Left over</div></div>
+        <div class="sstat"><div class="sstat-val" id="sum-energy">0</div><div class="sstat-lab">Energy left</div></div>
+      </div>
+      <div class="journal-title">Your day, in short</div>
+      <div id="journal"></div>
+      <div class="summary-actions">
+        <button class="btn primary" id="btn-again">Play another day →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
