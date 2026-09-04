@@ -2,15 +2,16 @@ import { Map as MapLibreMap, Marker, NavigationControl, config } from 'maplibre-
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { LOCATIONS, START, CAT_COLORS, findLocation } from './locations.js';
+import { state } from './state.js';
+import { isLocationExhausted } from './activities.js';
+
 // MapLibre otherwise locates its Web Worker relative to import.meta.url, which
 // points into the bundle — where no worker file exists. The worker then 404s
 // and the map renders nothing at all, with no error. Hand it a URL the bundler
 // actually emits. `?worker&url` (not plain `?url`) matters: the worker imports
 // maplibre-gl-shared.mjs, so it has to be bundled, not just copied.
 config.WORKER_URL = maplibreWorkerUrl;
-import { LOCATIONS, START, CAT_COLORS, findLocation } from './locations.js';
-import { state } from './state.js';
-import { isLocationExhausted } from './activities.js';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 // MapLibre serves 512px tiles, so a given zoom covers half the ground Leaflet's
@@ -68,9 +69,23 @@ const PALETTE_TINT = {
   label_city: { 'text-color': '#201C18', 'text-halo-color': '#F6F1E7' },
 };
 
+
+
+// Utrecht's centre packs several locations into a couple of hundred metres, so
+// at the starting zoom their pins overlap and the buried ones can't be clicked.
+// A clustered GeoJSON source groups them into a single counted badge; clicking
+// it zooms to the level where they separate. Pins stay as DOM markers rather
+// than map layers so they keep the teardrop-and-emoji design, with this source
+// acting purely as the clustering engine we query on each move.
+const CLUSTER_MAX_ZOOM = 16;
+const CLUSTER_RADIUS = 44;
+const SOURCE_ID = 'locations';
+
 let map = null;
-let markers = {};
 let playerMarker = null;
+let onSelectLocation = () => {};
+const locationMarkers = new Map();
+const clusterMarkers = new Map();
 
 // The style is fetched from OpenFreeMap, so a layer named here may not exist
 // in a future version of it; skip rather than throw.
@@ -83,7 +98,117 @@ function applyPaletteTint(m) {
   }
 }
 
+function locationsGeoJSON() {
+  return {
+    type: 'FeatureCollection',
+    features: LOCATIONS.map((loc) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
+      properties: { id: loc.id, done: isLocationExhausted(loc) },
+    })),
+  };
+}
+
+function makePinElement(loc) {
+  // MapLibre writes its own `transform` onto the marker element to position it,
+  // which would clobber the pin's rotate(-45deg). Keep the rotation on an inner
+  // element and hand MapLibre a plain wrapper.
+  const wrapper = document.createElement('div');
+  wrapper.className = 'pin-marker';
+
+  const pin = document.createElement('div');
+  pin.className = 'pin';
+  pin.style.background = CAT_COLORS[loc.cat];
+  pin.innerHTML = '<span>' + loc.icon + '</span>';
+  pin.classList.toggle('visited', isLocationExhausted(loc));
+  wrapper.appendChild(pin);
+
+  wrapper.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    onSelectLocation(loc.id);
+  });
+  return wrapper;
+}
+
+function makeClusterElement(clusterId, count, allDone) {
+  const el = document.createElement('div');
+  el.className = 'cluster-marker' + (allDone ? ' visited' : '');
+  el.textContent = String(count);
+  el.title = `${count} places here — click to zoom in`;
+
+  el.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    const source = map.getSource(SOURCE_ID);
+    const marker = clusterMarkers.get(clusterId);
+    if (!source || !marker) return;
+    // A little past the break-apart zoom, so they visibly separate.
+    const zoom = (await source.getClusterExpansionZoom(clusterId)) + 0.3;
+    map.easeTo({ center: marker.getLngLat(), zoom, duration: 700 });
+  });
+  return el;
+}
+
+// Rebuilds the marker set from whatever the clustered source currently holds.
+// Markers are keyed so unchanged ones are left alone and don't flicker.
+function syncMarkers() {
+  if (!map.getSource(SOURCE_ID) || !map.isSourceLoaded(SOURCE_ID)) return;
+
+  const features = map.querySourceFeatures(SOURCE_ID);
+  const liveClusters = new Set();
+  const liveLocations = new Set();
+
+  for (const f of features) {
+    const props = f.properties;
+    const [lng, lat] = f.geometry.coordinates;
+
+    if (props.cluster) {
+      const clusterId = props.cluster_id;
+      // The same cluster can come back from several tiles.
+      if (liveClusters.has(clusterId)) continue;
+      liveClusters.add(clusterId);
+
+      const allDone = props.doneCount === props.point_count;
+      const existing = clusterMarkers.get(clusterId);
+      if (existing) {
+        existing.getElement().classList.toggle('visited', allDone);
+      } else {
+        const el = makeClusterElement(clusterId, props.point_count, allDone);
+        clusterMarkers.set(clusterId, new Marker({ element: el }).setLngLat([lng, lat]).addTo(map));
+      }
+    } else {
+      const loc = findLocation(props.id);
+      if (!loc || liveLocations.has(loc.id)) continue;
+      liveLocations.add(loc.id);
+
+      const existing = locationMarkers.get(loc.id);
+      if (existing) {
+        existing.getElement().querySelector('.pin').classList.toggle('visited', isLocationExhausted(loc));
+      } else {
+        const marker = new Marker({ element: makePinElement(loc), offset: PIN_TIP_OFFSET })
+          .setLngLat([lng, lat])
+          .addTo(map);
+        locationMarkers.set(loc.id, marker);
+      }
+    }
+  }
+
+  for (const [id, marker] of clusterMarkers) {
+    if (!liveClusters.has(id)) {
+      marker.remove();
+      clusterMarkers.delete(id);
+    }
+  }
+  for (const [id, marker] of locationMarkers) {
+    if (!liveLocations.has(id)) {
+      marker.remove();
+      locationMarkers.delete(id);
+    }
+  }
+}
+
 export function initMap({ onSelect }) {
+  onSelectLocation = onSelect;
+
   map = new MapLibreMap({
     container: 'map',
     style: STYLE_URL,
@@ -92,36 +217,41 @@ export function initMap({ onSelect }) {
     attributionControl: { compact: true },
   });
   map.addControl(new NavigationControl({ showCompass: false }), 'top-left');
-  map.on('load', () => applyPaletteTint(map));
 
-  LOCATIONS.forEach((loc) => {
-    // MapLibre writes its own `transform` onto the marker element to position
-    // it, which would clobber the pin's rotate(-45deg). Keep the rotation on an
-    // inner element and hand MapLibre a plain wrapper.
-    const wrapper = document.createElement('div');
-    wrapper.className = 'pin-marker';
+  map.on('load', () => {
+    applyPaletteTint(map);
 
-    const pin = document.createElement('div');
-    pin.className = 'pin';
-    pin.style.background = CAT_COLORS[loc.cat];
-    pin.innerHTML = '<span>' + loc.icon + '</span>';
-    wrapper.appendChild(pin);
-
-    wrapper.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      onSelect(loc.id);
+    map.addSource(SOURCE_ID, {
+      type: 'geojson',
+      data: locationsGeoJSON(),
+      cluster: true,
+      clusterMaxZoom: CLUSTER_MAX_ZOOM,
+      clusterRadius: CLUSTER_RADIUS,
+      // Lets a cluster tell whether every location inside it is finished.
+      clusterProperties: { doneCount: ['+', ['case', ['get', 'done'], 1, 0]] },
     });
 
-    markers[loc.id] = new Marker({ element: wrapper, offset: PIN_TIP_OFFSET })
-      .setLngLat([loc.lng, loc.lat])
-      .addTo(map);
+    // querySourceFeatures only returns features from tiles the map has actually
+    // built, and it only builds tiles for sources some layer references. This
+    // layer draws nothing; it exists so the clustered tiles get computed.
+    map.addLayer({
+      id: 'locations-anchor',
+      type: 'circle',
+      source: SOURCE_ID,
+      paint: { 'circle-radius': 0, 'circle-opacity': 0 },
+    });
+
+    syncMarkers();
+  });
+
+  map.on('moveend', syncMarkers);
+  map.on('sourcedata', (e) => {
+    if (e.sourceId === SOURCE_ID && e.isSourceLoaded) syncMarkers();
   });
 
   const dot = document.createElement('div');
   dot.className = 'player-dot';
-  playerMarker = new Marker({ element: dot })
-    .setLngLat([START.lng, START.lat])
-    .addTo(map);
+  playerMarker = new Marker({ element: dot }).setLngLat([START.lng, START.lat]).addTo(map);
 
   return map;
 }
@@ -132,11 +262,13 @@ export function updatePlayerMarker() {
   map.flyTo({ center: [loc.lng, loc.lat], duration: 900 });
 }
 
+// Completing an activity can exhaust a location, which changes both the pin's
+// own styling and the done-tally its cluster reports, so the source data is
+// refreshed rather than just the DOM.
 export function refreshPinStyles() {
-  LOCATIONS.forEach((loc) => {
-    const el = markers[loc.id]?.getElement().querySelector('.pin');
-    if (el) el.classList.toggle('visited', isLocationExhausted(loc));
-  });
+  const source = map.getSource(SOURCE_ID);
+  if (source) source.setData(locationsGeoJSON());
+  syncMarkers();
 }
 
 export function resetMapView() {

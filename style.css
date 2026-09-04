@@ -153,6 +153,22 @@ body{
 .pin.visited{opacity:0.55;}
 .pin-marker:hover .pin{filter:brightness(1.15);}
 
+/* Stand-in for several overlapping pins; round rather than teardrop so it
+   reads as a group rather than a place. */
+.cluster-marker{
+  width:38px;height:38px;border-radius:50%;
+  background:var(--canal);
+  border:2px solid var(--paper);
+  box-shadow:0 3px 8px rgba(0,0,0,0.35), 0 0 0 4px rgba(40,67,61,0.18);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--paper);
+  font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;
+  cursor:pointer;
+  transition:transform .12s ease, filter .12s ease;
+}
+.cluster-marker:hover{transform:scale(1.08);filter:brightness(1.15);}
+.cluster-marker.visited{opacity:0.55;}
+
 .player-dot{
   width:18px;height:18px;border-radius:50%;
   background:var(--mustard);border:3px solid var(--paper);
