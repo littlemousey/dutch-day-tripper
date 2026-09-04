@@ -23,9 +23,65 @@ const DEFAULT_ZOOM = 13.3;
 // 48px bounding box. Offsetting by that puts the tip on the real coordinate.
 const PIN_TIP_OFFSET = [0, -24];
 
+// The stock positron style is neutral grey. These overrides pull the basemap
+// into the game's palette: warm paper for land, sandstone buildings, muted
+// canal-green water (Utrecht being a canal city). Everything stays low
+// saturation on purpose, so the category-coloured pins remain the most
+// saturated thing on screen and stay readable against it.
+// Delete the applyPaletteTint() call in initMap to go back to stock positron.
+const PALETTE_TINT = {
+  background: { 'background-color': '#F6F1E7' },
+  landuse_residential: { 'fill-color': '#F1E9D9' },
+  park: { 'fill-color': '#E2E4CF' },
+  landcover_wood: { 'fill-color': '#DADEC6' },
+  water: { 'fill-color': '#9FBAB2' },
+  waterway: { 'line-color': '#8CAAA1' },
+  building: { 'fill-color': '#EADFC8', 'fill-outline-color': '#DDCFB2' },
+
+  highway_path: { 'line-color': '#E8E0CE' },
+  highway_minor: { 'line-color': '#EFE7D6' },
+  highway_major_casing: { 'line-color': '#DCD1B8' },
+  highway_major_inner: { 'line-color': '#FFFBF2' },
+  highway_major_subtle: { 'line-color': '#E4DBC6' },
+  highway_motorway_casing: { 'line-color': '#D8CCB0' },
+  highway_motorway_inner: { 'line-color': '#FFFBF2' },
+  highway_motorway_subtle: { 'line-color': '#E4DBC6' },
+  road_area_pier: { 'fill-color': '#F1E9D9' },
+  road_pier: { 'line-color': '#F1E9D9' },
+
+  railway: { 'line-color': '#D9CFB8' },
+  railway_dashline: { 'line-color': '#F6F1E7' },
+  railway_transit: { 'line-color': '#D9CFB8' },
+  railway_transit_dashline: { 'line-color': '#F6F1E7' },
+  railway_service: { 'line-color': '#D9CFB8' },
+  railway_service_dashline: { 'line-color': '#F6F1E7' },
+
+  waterway_line_label: { 'text-color': '#6E8880', 'text-halo-color': 'rgba(246,241,231,0.8)' },
+  water_name_point_label: { 'text-color': '#3A5A52', 'text-halo-color': 'rgba(246,241,231,0.8)' },
+  water_name_line_label: { 'text-color': '#3A5A52', 'text-halo-color': 'rgba(246,241,231,0.8)' },
+  'highway-name-path': { 'text-color': '#8A8072', 'text-halo-color': '#F6F1E7' },
+  'highway-name-minor': { 'text-color': '#8A8072' },
+  'highway-name-major': { 'text-color': '#7A7060' },
+  label_other: { 'text-color': '#5B5245', 'text-halo-color': '#F6F1E7' },
+  label_village: { 'text-color': '#4A4236', 'text-halo-color': '#F6F1E7' },
+  label_town: { 'text-color': '#3A342B', 'text-halo-color': '#F6F1E7' },
+  label_city: { 'text-color': '#201C18', 'text-halo-color': '#F6F1E7' },
+};
+
 let map = null;
 let markers = {};
 let playerMarker = null;
+
+// The style is fetched from OpenFreeMap, so a layer named here may not exist
+// in a future version of it; skip rather than throw.
+function applyPaletteTint(m) {
+  for (const [layerId, paint] of Object.entries(PALETTE_TINT)) {
+    if (!m.getLayer(layerId)) continue;
+    for (const [prop, value] of Object.entries(paint)) {
+      m.setPaintProperty(layerId, prop, value);
+    }
+  }
+}
 
 export function initMap({ onSelect }) {
   map = new MapLibreMap({
@@ -36,6 +92,7 @@ export function initMap({ onSelect }) {
     attributionControl: { compact: true },
   });
   map.addControl(new NavigationControl({ showCompass: false }), 'top-left');
+  map.on('load', () => applyPaletteTint(map));
 
   LOCATIONS.forEach((loc) => {
     // MapLibre writes its own `transform` onto the marker element to position
