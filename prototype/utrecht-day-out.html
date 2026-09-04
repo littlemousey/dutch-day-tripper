@@ -145,7 +145,11 @@ body{
 #end-day-btn:hover{background:var(--mustard);color:var(--ink);}
 
 #map-wrap{position:relative;flex:1;min-height:0;}
-#map{position:absolute;inset:0;}
+/* z-index:0 is load-bearing: it makes #map a stacking context so Leaflet's
+   internal panes (z-index 200-700) stay contained. Without it those values
+   leak into #map-wrap and paint over #pin-layer and #panel — the pins and the
+   panel still exist and still receive clicks, they're just invisible. */
+#map{position:absolute;inset:0;z-index:0;}
 
 .pin{
   position:absolute;
@@ -159,7 +163,7 @@ body{
 }
 .pin span{transform:rotate(45deg);font-size:15px;}
 .pin.visited{opacity:0.55;}
-#pin-layer{position:absolute;inset:0;pointer-events:none;}
+#pin-layer{position:absolute;inset:0;pointer-events:none;z-index:10;}
 .player-dot{
   position:absolute;
   width:18px;height:18px;border-radius:50%;
@@ -496,22 +500,13 @@ function initMap(){
   map = L.map('map', { zoomControl:true, attributionControl:true })
     .setView([START.lat, START.lng], 14.3);
 
-  const primary = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    subdomains:'abcd',
-    maxZoom:20,
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  // CARTO's Voyager tiles now require an API key: they still return HTTP 200,
+  // but the image comes back stamped "API KEY REQUIRED", so a tileerror-based
+  // fallback can never detect it. OpenStreetMap's standard tiles need no key.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
-
-  let triedFallback = false;
-  primary.on('tileerror', ()=>{
-    if(triedFallback) return;
-    triedFallback = true;
-    map.removeLayer(primary);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      subdomains:'abc', maxZoom:19,
-      attribution:'&copy; OpenStreetMap contributors'
-    }).addTo(map);
-  });
 
   pinLayer = document.createElement('div');
   pinLayer.id = 'pin-layer';
