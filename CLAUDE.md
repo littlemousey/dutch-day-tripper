@@ -55,6 +55,12 @@ needs no API key and suits the warm-paper palette. Two things to know:
   covered at the same number. `DEFAULT_ZOOM` is 13.3, framing the city the way
   the prototype's Leaflet 14.3 did.
 
+Pins are DOM markers driven by a clustered GeoJSON source (`src/map.js`), not
+map layers — that keeps the teardrop-and-emoji design while still getting real
+clustering for the overlapping centre locations. The source is queried on each
+move; the invisible `locations-anchor` layer exists only because MapLibre
+builds tiles for a source when some layer references it.
+
 CARTO's Voyager tiles (used by the prototype) now require an API key and serve
 an "API KEY REQUIRED" watermark with HTTP 200, so a `tileerror` fallback can
 never detect it. Don't go back to them without a key.
@@ -119,12 +125,9 @@ Palette and type choices from the prototype, worth keeping consistent:
 1. **Mobile layout pass.** The bottom-sheet panel works, but the top bar
    breaks on a phone: the stat strip wraps to roughly 200px tall and leaves
    only a sliver of map. Observed at 390x844, not yet fixed.
-2. **Overlapping pins.** At the default zoom, four or five pins stack on top
-   of each other around Dom / Neude / Oudegracht, so the buried ones can't be
-   clicked at all. Needs spreading, clustering, or zoom-dependent offsets.
-3. Persist a finished day (e.g. via `localStorage` or a simple backend) so
+2. Persist a finished day (e.g. via `localStorage` or a simple backend) so
    people can compare runs / share a result.
-4. A second city (Amsterdam or Delft are natural next picks) — the data
+3. A second city (Amsterdam or Delft are natural next picks) — the data
    model already supports multiple cities via the city-select screen, which
    currently only unlocks Utrecht.
 
