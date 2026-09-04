@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>A Day in Utrecht</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root{
+  --brick:#A8432E;
+  --brick-dark:#8A3423;
+  --canal:#28433D;
+  --canal-light:#3D5C54;
+  --sandstone:#E8DCC8;
+  --ink:#201C18;
+  --mustard:#C7961F;
+  --forest:#4F6E48;
+  --paper:#F6F1E7;
+  --paper-dim:#ECE4D3;
+  --good:#3F6B4C;
+  --bad:#A8432E;
+  --line: rgba(32,28,24,0.14);
+  --shadow: 0 10px 30px rgba(32,28,24,0.18);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;background:var(--ink);}
+body{
+  font-family:'Inter',sans-serif;
+  color:var(--ink);
+  overflow:hidden;
+}
+#app{position:relative;width:100%;height:100vh;background:var(--paper);}
+
+.screen{position:absolute;inset:0;display:none;}
+.screen.active{display:flex;flex-direction:column;}
+
+/* ---------- START SCREEN ---------- */
+#screen-start{
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(199,150,31,0.16), transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(40,67,61,0.25), transparent 55%),
+    var(--paper);
+  align-items:center;justify-content:center;
+  padding:32px;
+}
+.start-card{
+  max-width:640px;width:100%;
+  text-align:center;
+}
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;letter-spacing:0.18em;text-transform:uppercase;
+  color:var(--canal);font-weight:700;margin-bottom:14px;
+}
+.start-title{
+  font-family:'Fraunces',serif;
+  font-size:clamp(40px,7vw,68px);
+  font-weight:700;
+  line-height:1.02;
+  margin:0 0 6px 0;
+  color:var(--ink);
+}
+.start-title em{color:var(--brick);font-style:normal;}
+.start-sub{
+  font-size:16px;color:#5b544a;max-width:460px;margin:14px auto 34px auto;line-height:1.55;
+}
+.city-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:30px;}
+.city-chip{
+  font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.06em;
+  padding:9px 16px;border-radius:999px;border:1.5px solid var(--line);
+  color:#8a8072;background:transparent;text-transform:uppercase;
+}
+.city-chip.active{
+  background:var(--canal);border-color:var(--canal);color:var(--paper);font-weight:700;cursor:default;
+}
+.start-btn{
+  font-family:'Inter',sans-serif;font-weight:700;font-size:16px;
+  background:var(--brick);color:var(--paper);border:none;
+  padding:16px 34px;border-radius:10px;cursor:pointer;
+  box-shadow:0 8px 0 var(--brick-dark);
+  transition:transform .08s ease;
+}
+.start-btn:active{transform:translateY(6px);box-shadow:0 2px 0 var(--brick-dark);}
+.start-btn:hover{filter:brightness(1.05);}
+
+/* ---------- INTRO MODAL ---------- */
+.modal-veil{
+  position:absolute;inset:0;background:rgba(24,20,16,0.55);
+  display:none;align-items:center;justify-content:center;z-index:50;padding:20px;
+}
+.modal-veil.active{display:flex;}
+.modal-card{
+  background:var(--paper);max-width:520px;width:100%;border-radius:14px;
+  padding:34px 32px;box-shadow:var(--shadow);border:1px solid var(--line);
+  max-height:82vh;overflow-y:auto;
+}
+.modal-card h2{
+  font-family:'Fraunces',serif;font-size:28px;margin:0 0 14px 0;color:var(--ink);
+}
+.modal-card p{font-size:15px;line-height:1.65;color:#463f36;margin:0 0 12px 0;}
+.modal-card .modal-actions{margin-top:22px;display:flex;justify-content:flex-end;gap:10px;}
+.btn{
+  font-family:'Inter',sans-serif;font-weight:600;font-size:14px;
+  padding:11px 20px;border-radius:8px;border:1.5px solid var(--ink);
+  background:transparent;color:var(--ink);cursor:pointer;
+}
+.btn.primary{background:var(--ink);color:var(--paper);}
+.btn:hover{filter:brightness(1.1);}
+
+/* ---------- GAME SCREEN ---------- */
+#screen-game{flex-direction:column;}
+#topbar{
+  background:var(--ink);color:var(--paper);
+  display:flex;align-items:center;gap:0;
+  padding:0 4px;flex-wrap:wrap;
+  border-bottom:3px solid var(--mustard);
+  z-index:20;position:relative;
+}
+.tb-title{
+  font-family:'Fraunces',serif;font-weight:700;font-size:18px;
+  padding:12px 16px;white-space:nowrap;color:var(--paper);
+}
+.tb-title span{color:var(--mustard);}
+.stat-strip{display:flex;flex:1;flex-wrap:wrap;}
+.stat{
+  font-family:'JetBrains Mono',monospace;
+  padding:10px 16px;display:flex;flex-direction:column;gap:2px;
+  border-left:1px solid rgba(246,241,231,0.15);
+  min-width:88px;
+}
+.stat-label{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:#b7ac9a;}
+.stat-value{font-size:16px;font-weight:700;transition:color .3s ease, transform .3s ease;}
+.stat-value.pulse{transform:scale(1.15);}
+.stat-value.up{color:#8fd6a6;}
+.stat-value.down{color:#e2917f;}
+#end-day-btn{
+  margin:8px 12px;padding:9px 16px;border-radius:8px;border:1.5px solid var(--mustard);
+  background:transparent;color:var(--mustard);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;
+  white-space:nowrap;
+}
+#end-day-btn:hover{background:var(--mustard);color:var(--ink);}
+
+#map-wrap{position:relative;flex:1;min-height:0;}
+#map{position:absolute;inset:0;}
+
+.pin{
+  position:absolute;
+  width:34px;height:34px;border-radius:50% 50% 50% 0;
+  transform:rotate(-45deg);
+  border:2px solid var(--paper);
+  box-shadow:0 3px 8px rgba(0,0,0,0.35);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  pointer-events:auto;
+}
+.pin span{transform:rotate(45deg);font-size:15px;}
+.pin.visited{opacity:0.55;}
+#pin-layer{position:absolute;inset:0;pointer-events:none;}
+.player-dot{
+  position:absolute;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--mustard);border:3px solid var(--paper);
+  box-shadow:0 0 0 4px rgba(199,150,31,0.35);
+  animation:pulse-dot 2s infinite;
+  pointer-events:none;
+}
+@keyframes pulse-dot{
+  0%{box-shadow:0 0 0 0 rgba(199,150,31,0.45);}
+  70%{box-shadow:0 0 0 12px rgba(199,150,31,0);}
+  100%{box-shadow:0 0 0 0 rgba(199,150,31,0);}
+}
+
+/* ---------- PANEL ---------- */
+#panel{
+  position:absolute;top:0;right:0;bottom:0;width:400px;max-width:92vw;
+  background:var(--paper);
+  box-shadow:-8px 0 24px rgba(0,0,0,0.18);
+  transform:translateX(100%);
+  transition:transform .28s ease;
+  display:flex;flex-direction:column;
+  z-index:15;
+}
+#panel.open{transform:translateX(0);}
+.panel-head{
+  background:var(--canal);color:var(--paper);padding:20px 22px 16px 22px;
+  border-bottom:4px solid var(--mustard);
+}
+.panel-cat{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--mustard);margin-bottom:6px;}
+.panel-title{font-family:'Fraunces',serif;font-size:24px;font-weight:700;margin:0;}
+.panel-travel{font-size:12.5px;color:#cfe0da;margin-top:8px;font-family:'JetBrains Mono',monospace;}
+.panel-body{padding:20px 22px;overflow-y:auto;flex:1;}
+.panel-body p{font-size:14.5px;line-height:1.65;color:#3d3730;margin:0 0 16px 0;}
+.close-x{
+  position:absolute;top:16px;right:16px;background:none;border:none;color:var(--paper);
+  font-size:20px;cursor:pointer;line-height:1;
+}
+.panel-head{position:relative;}
+
+.activity{
+  border:1.5px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;
+  background:#fff;
+}
+.activity.disabled{opacity:0.48;}
+.activity-label{font-weight:700;font-size:15px;margin-bottom:6px;color:var(--ink);}
+.activity-costs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.cost-chip{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--paper-dim);color:#5b544a;
+}
+.activity-note{font-size:12px;color:var(--brick);margin-bottom:8px;font-style:italic;}
+.pick-btn{
+  width:100%;padding:9px;border-radius:7px;border:none;background:var(--brick);color:var(--paper);
+  font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;cursor:pointer;
+}
+.pick-btn:disabled{background:#b9ae9c;cursor:not-allowed;}
+.pick-btn:not(:disabled):hover{filter:brightness(1.08);}
+
+.outcome-box{
+  background:var(--sandstone);border-radius:10px;padding:16px;margin-bottom:14px;
+  border-left:4px solid var(--brick);
+}
+.outcome-box p{margin:0;font-size:14.5px;line-height:1.6;color:#332e27;}
+.delta-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.delta-chip{font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 8px;border-radius:6px;font-weight:700;}
+.delta-chip.pos{background:rgba(63,107,76,0.15);color:var(--good);}
+.delta-chip.neg{background:rgba(168,67,46,0.15);color:var(--bad);}
+
+/* ---------- SUMMARY ---------- */
+#screen-summary{
+  align-items:center;justify-content:center;padding:30px;
+  background:var(--paper);overflow-y:auto;
+}
+.summary-card{max-width:600px;width:100%;padding:10px 0 40px 0;}
+.summary-tier{font-family:'Fraunces',serif;font-size:clamp(30px,5vw,44px);font-weight:700;color:var(--ink);margin:6px 0 4px 0;text-align:center;}
+.summary-eyebrow{text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:var(--brick);}
+.summary-stats{display:flex;justify-content:center;gap:26px;margin:26px 0 30px 0;flex-wrap:wrap;}
+.sstat{text-align:center;}
+.sstat-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--canal);}
+.sstat-lab{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#8a8072;margin-top:2px;}
+.journal-title{font-family:'Fraunces',serif;font-size:18px;margin:0 0 12px 0;color:var(--ink);border-top:1px solid var(--line);padding-top:22px;}
+.journal-entry{display:flex;gap:14px;padding:10px 0;border-bottom:1px dashed var(--line);}
+.journal-time{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--brick);min-width:48px;font-weight:700;}
+.journal-text{font-size:13.5px;line-height:1.55;color:#463f36;}
+.summary-actions{display:flex;justify-content:center;margin-top:30px;}
+
+@media (max-width:720px){
+  #panel{top:auto;left:0;right:0;width:auto;max-width:none;height:66vh;transform:translateY(100%);border-radius:16px 16px 0 0;}
+  #panel.open{transform:translateY(0);}
+  .tb-title{font-size:15px;padding:10px 12px;}
+  .stat{min-width:70px;padding:8px 10px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div id="screen-start" class="screen active">
+    <div class="start-card">
+      <div class="eyebrow">Interactive day trip</div>
+      <h1 class="start-title">A Day in a<br><em>Dutch City</em></h1>
+      <p class="start-sub">Pick a city, land with a modest budget and a full day ahead, and see where your feet (and your bike bell) take you. Every choice costs time, money, or energy — spend them well.</p>
+      <div class="city-row">
+        <div class="city-chip active">Utrecht</div>
+        <div class="city-chip">Amsterdam — soon</div>
+        <div class="city-chip">Rotterdam — soon</div>
+        <div class="city-chip">Delft — soon</div>
+      </div>
+      <button class="start-btn" id="btn-go-utrecht">Start your day in Utrecht →</button>
+    </div>
+  </div>
+
+  <!-- INTRO MODAL -->
+  <div class="modal-veil" id="intro-modal">
+    <div class="modal-card">
+      <h2>09:00 — Utrecht Centraal</h2>
+      <p>The train doors hiss open onto a platform full of bicycles, bells, and the smell of fresh <em>stroopwafels</em> from a kiosk somewhere behind you. You've got the whole day in Utrecht ahead of you.</p>
+      <p>You're carrying <strong>€70</strong> for the day, and you're fresh — full energy, open mind. The city closes up around <strong>22:00</strong>, so plan your route with a little care. The map shows what's worth your time; tap a pin to see what's there.</p>
+      <div class="modal-actions">
+        <button class="btn primary" id="btn-begin">Step outside →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="screen-game" class="screen">
+    <div id="topbar">
+      <div class="tb-title">Utrecht <span>·</span> a day out</div>
+      <div class="stat-strip">
+        <div class="stat"><div class="stat-label">Time</div><div class="stat-value" id="stat-time">09:00</div></div>
+        <div class="stat"><div class="stat-label">Budget</div><div class="stat-value" id="stat-money">€70</div></div>
+        <div class="stat"><div class="stat-label">Energy</div><div class="stat-value" id="stat-energy">100</div></div>
+        <div class="stat"><div class="stat-label">Mood</div><div class="stat-value" id="stat-mood">50</div></div>
+      </div>
+      <button id="end-day-btn">End the day</button>
+    </div>
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="panel">
+        <div class="panel-head">
+          <button class="close-x" id="panel-close">✕</button>
+          <div class="panel-cat" id="panel-cat">CATEGORY</div>
+          <h3 class="panel-title" id="panel-title">Location</h3>
+          <div class="panel-travel" id="panel-travel"></div>
+        </div>
+        <div class="panel-body" id="panel-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY SCREEN -->
+  <div id="screen-summary" class="screen">
+    <div class="summary-card">
+      <div class="summary-eyebrow" id="sum-eyebrow">22:00 · The day is done</div>
+      <div class="summary-tier" id="sum-tier">—</div>
+      <div class="summary-stats">
+        <div class="sstat"><div class="sstat-val" id="sum-mood">0</div><div class="sstat-lab">Final mood</div></div>
+        <div class="sstat"><div class="sstat-val" id="sum-visited">0</div><div class="sstat-lab">Places seen</div></div>
+        <div class="sstat"><div class="sstat-val" id="sum-money">€0</div><div class="sstat-lab">Left over</div></div>
+        <div class="sstat"><div class="sstat-val" id="sum-energy">0</div><div class="sstat-lab">Energy left</div></div>
+      </div>
+      <div class="journal-title">Your day, in short</div>
+      <div id="journal"></div>
+      <div class="summary-actions">
+        <button class="btn primary" id="btn-again">Play another day →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+// ---------------- CONTENT ----------------
+const START = { lat:52.0894, lng:5.1101 };
+const TOTAL_MIN = 13*60; // 09:00 -> 22:00
+
+const LOCATIONS = [
+  { id:'centraal', name:'Utrecht Centraal', cat:'transport', icon:'🚉', lat:52.0894, lng:5.1101,
+    intro:"The station concourse hums with bikes wheeling past and the announcer's clipped Dutch. This is home base — you can always drift back here.",
+    activities:[
+      { id:'coffee-togo', label:'Grab a coffee to-go from the kiosk', time:5, money:3, energy:10, mood:2,
+        text:"The kiosk coffee is bitter and a little burnt, but it's hot, and the woman behind the counter tosses in a free stroopwafel to balance it out." }
+    ]},
+
+  { id:'dom', name:'Domplein & Dom Tower', cat:'culture', icon:'🏰', lat:52.0908, lng:5.1215,
+    intro:"The Dom Tower rises 112 metres over the square, the tallest church tower in the country, oddly disconnected from its own nave since a 1674 storm tore the middle of the church clean off.",
+    activities:[
+      { id:'climb', label:'Climb the 465 steps to the top', time:75, money:12.5, energy:-20,
+        random:{chance:0.7,
+          good:{mood:28, text:"The guide times it perfectly — you crest the final stairwell just as the haze burns off, and all of Utrecht opens out beneath you: red rooftops, the ring of canals, windmills on the horizon."},
+          bad:{mood:12, text:"Low cloud rolls in halfway up, and the view from the top is mostly grey soup. Still, there's something satisfying about the burn in your legs and the bell chamber's enormous, silent bells up close."}}},
+      { id:'watch', label:'Sit on Domplein and people-watch', time:20, money:0, energy:5, mood:8,
+        text:"You find a stone step in the sun. A street musician plays something half-recognisable on an accordion, and a wedding party spills out of the Dom's side door, laughing." }
+    ]},
+
+  { id:'oudegracht', name:'Oudegracht Wharf', cat:'food', icon:'☕', lat:52.0899, lng:5.1201,
+    intro:"Utrecht's signature trick: the canal here runs a full storey below street level, with wharf cellars — once warehouses, now cafés — opening directly onto the water.",
+    activities:[
+      { id:'terrace', label:'Coffee & appeltaart on the wharf terrace', time:40, money:6.5, energy:15, mood:10,
+        text:"You get a table right at the waterline. The appeltaart arrives with a small mountain of whipped cream, and a duck family paddles past close enough to touch." },
+      { id:'boat', label:'Rent a small sloep and take it for a spin', time:60, money:20, energy:-5,
+        random:{chance:0.65,
+          good:{mood:25, text:"You get the hang of the tiller almost immediately, gliding under low bridges as cyclists rumble overhead. It's the best twenty euros you've spent all trip."},
+          bad:{mood:9, text:"A sudden drizzle catches you halfway round the loop, and you spend the last twenty minutes steering one-handed while holding your jacket over your bag."}}}
+    ]},
+
+  { id:'museum', name:'Centraal Museum', cat:'culture', icon:'🖼️', lat:52.0850, lng:5.1204,
+    intro:"The Netherlands' oldest municipal museum, tucked into a former convent, with a wing devoted to Utrecht-born furniture radical Gerrit Rietveld.",
+    activities:[
+      { id:'full', label:'Buy a ticket and explore at leisure', time:90, money:15.5, energy:-10, mood:18,
+        text:"You lose track of time in the Rietveld room, staring at the primary-colour geometry of a chair that looks like it shouldn't be sittable, and somehow is." },
+      { id:'garden', label:'Peek at the free museum garden only', time:15, money:0, energy:5, mood:4,
+        text:"You skip the ticket line and slip into the courtyard garden instead — a quiet square of clipped hedges and a single, enormous magnolia." }
+    ]},
+
+  { id:'miffy', name:'Nijntje (Miffy) Museum', cat:'culture', icon:'🐰', lat:52.0918, lng:5.1266,
+    intro:"Dick Bruna's tiny square-headed rabbit was born right here in Utrecht. The museum is technically for children, which has never stopped anyone.",
+    activities:[
+      { id:'inside', label:'Relive childhood inside the museum', time:45, money:7.5, energy:-5,
+        random:{chance:0.6,
+          good:{mood:24, text:"You end up sitting cross-legged on a beanbag reading a nijntje book aloud to a delighted three-year-old you've never met, much to her parents' amusement."},
+          bad:{mood:11, text:"It's swamped with a school trip, and you spend most of the visit gently sidestepping toddlers. Still charming, just noisier than expected."}}},
+      { id:'statue', label:'Snap a photo with the Miffy statue outside', time:5, money:0, energy:0, mood:3,
+        text:"A small bronze nijntje sits patiently by the entrance, worn smooth on the ears from a decade of hands." },
+      { id:'plein', label:'Relax at Nijntje Pleintje (Miffy Square)', time:25, money:0, energy:8, mood:9,
+        text:"A tiny public square just round the corner, dotted with Miffy-shaped benches and a low hedge maze. You sit on a bench shaped like an oversized nijntje ear and just watch the neighbourhood go by for a while — free, and quietly lovely." }
+    ]},
+
+  { id:'vredenburg', name:'Vredenburg & Hoog Catharijne', cat:'shopping', icon:'🧺', lat:52.0919, lng:5.1148,
+    intro:"A wide market square backing onto one of Europe's largest indoor shopping centres — old stalls and glass atriums, side by side.",
+    activities:[
+      { id:'market', label:'Browse the market stalls', time:30, money:4, energy:5, mood:8,
+        text:"You end up with a paper cone of fresh-cut fruit and a block of aged Gouda you definitely didn't plan on buying, from a vendor who insists you try three samples first." },
+      { id:'shop', label:'Duck into Hoog Catharijne for shopping', time:40, money:20, energy:-10, mood:6,
+        text:"You get pleasantly lost under the glass roof and come out with a small souvenir you'll probably regret packing." }
+    ]},
+
+  { id:'winkel', name:'Winkel van Sinkel', cat:'food', icon:'🍽️', lat:52.0913, lng:5.1197,
+    intro:"A grand 19th-century department store turned café-restaurant-club, right on the canal, with a wharf-level cellar bar below street level.",
+    activities:[
+      { id:'lunch', label:'Canal-side lunch on the terrace', time:50, money:18, energy:10, mood:12,
+        text:"Bitterballen and a beer, watching the wharf traffic go by below eye level — bikes and pedestrians up top, boats down at the water." },
+      { id:'evening', label:'Evening drinks & live music in the cellar', time:70, money:15, energy:-5, minMinutes:540,
+        random:{chance:0.6,
+          good:{mood:30, text:"A local three-piece is playing in the vaulted cellar bar, and by the second set half the room is singing along to a song you don't know but somehow do."},
+          bad:{mood:14, text:"The band's on a break longer than the set itself, but the old brick cellar and the candlelight make up for the quiet."}}}
+    ]},
+
+  { id:'botanic', name:'Utrecht Botanic Gardens', cat:'nature', icon:'🌿', lat:52.0847, lng:5.1467,
+    intro:"A green sprawl of glasshouses and themed gardens on the university campus, a proper walk east of the centre — quieter, slower, worth the trip.",
+    activities:[
+      { id:'wander', label:'Wander the greenhouses and gardens', time:60, money:6, energy:20, mood:15,
+        text:"The tropical greenhouse fogs up your glasses the second you step in. Outside, the rock garden is nearly empty, and you sit by the pond until your legs stop aching." }
+    ]},
+
+  { id:'railway', name:'Spoorwegmuseum', cat:'culture', icon:'🚂', lat:52.0989, lng:5.1181,
+    intro:"The old Maliebaan station, now packed with a century of Dutch locomotives you're actively encouraged to climb into.",
+    activities:[
+      { id:'trains', label:'Explore the vintage trains', time:75, money:17.5, energy:-10, mood:14,
+        text:"You end up in the cab of a 1950s diesel loco pulling imaginary levers like a kid, while a projection show turns the old platform into a snowy mountain pass." }
+    ]},
+
+  { id:'neude', name:'Neude Square', cat:'food', icon:'🍸', lat:52.0925, lng:5.1199,
+    intro:"By evening, this modern square — flanked by the old post office and a cluster of bars — turns into the liveliest patch of the city centre.",
+    activities:[
+      { id:'barhop', label:'Bar-hop around Neude square', time:60, money:15, energy:-10, minMinutes:600,
+        random:{chance:0.65,
+          good:{mood:26, text:"You fall into conversation with a table of Utrecht locals who insist on teaching you the correct way to toast in Dutch, which takes three tries and a lot of laughing."},
+          bad:{mood:13, text:"Every terrace is packed and you spend twenty minutes just finding a stool, but the square's buzz is contagious once you do."}}},
+      { id:'library', label:'Browse the library in the old post office', time:35, money:0, energy:12, mood:11,
+        text:"Utrecht's main library lives inside the grand old PTT post office building — a soaring, light-filled hall under the original ironwork skylight. You sink into a reading chair with a book you can't actually check out and stay far longer than planned. Free, and one of the calmest half-hours of the day." }
+    ]}
+];
+
+const CAT_COLORS = { transport:'#1B1B1B', culture:'#28433D', food:'#A8432E', shopping:'#C7961F', nature:'#4F6E48' };
+const CAT_LABELS = { transport:'Transport hub', culture:'Culture', food:'Food & drink', shopping:'Shopping', nature:'Nature' };
+
+const TRAVEL_FLAVOR = [
+  "A cyclist rings their bell and overtakes you without slowing down.",
+  "You dodge a tram at the crossing a beat later than you'd like.",
+  "Someone's cargo bike rattles past, three kids and a dog balanced in the front box.",
+  "A church bell somewhere counts out the hour as you walk.",
+  "The smell of frying oliebollen drifts from a stall you didn't plan to stop at — but almost do."
+];
+
+// ---------------- STATE ----------------
+let state = null;
+function freshState(){
+  return {
+    time:0, money:70, energy:100, mood:50,
+    currentLoc:'centraal',
+    doneActivities:new Set(),
+    visitedLocs:new Set(['centraal']),
+    log:[]
+  };
+}
+
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+function clockLabel(elapsed){
+  let total = 9*60 + elapsed;
+  let h = Math.floor(total/60), m = total%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+
+function haversine(a,b){
+  const R=6371;
+  const dLat=(b.lat-a.lat)*Math.PI/180, dLng=(b.lng-a.lng)*Math.PI/180;
+  const la1=a.lat*Math.PI/180, la2=b.lat*Math.PI/180;
+  const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function travelMinutes(fromLoc,toLoc){
+  if(fromLoc===toLoc) return 0;
+  const a = LOCATIONS.find(l=>l.id===fromLoc);
+  const b = LOCATIONS.find(l=>l.id===toLoc);
+  const km = haversine(a,b) * 1.3; // route inefficiency
+  const mins = (km/4.8)*60; // walking speed
+  return Math.max(5, Math.round(mins/5)*5);
+}
+
+// ---------------- MAP ----------------
+// Pins are plain DOM elements positioned manually over the map, rather than
+// Leaflet's built-in Marker system — this sidesteps some marker click/event
+// quirks seen in sandboxed embeds, while Leaflet itself still handles tiles,
+// panning, zooming, and coordinate math (a well-tested, simple surface).
+let map, pinLayer, pinEls = {}, playerEl;
+
+function initMap(){
+  map = L.map('map', { zoomControl:true, attributionControl:true })
+    .setView([START.lat, START.lng], 14.3);
+
+  const primary = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains:'abcd',
+    maxZoom:20,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
+
+  let triedFallback = false;
+  primary.on('tileerror', ()=>{
+    if(triedFallback) return;
+    triedFallback = true;
+    map.removeLayer(primary);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      subdomains:'abc', maxZoom:19,
+      attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(map);
+  });
+
+  pinLayer = document.createElement('div');
+  pinLayer.id = 'pin-layer';
+  document.getElementById('map-wrap').appendChild(pinLayer);
+
+  LOCATIONS.forEach(loc=>{
+    const el = document.createElement('div');
+    el.className = 'pin';
+    el.style.background = CAT_COLORS[loc.cat];
+    el.innerHTML = '<span>'+loc.icon+'</span>';
+    el.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      openPanel(loc.id);
+    });
+    pinLayer.appendChild(el);
+    pinEls[loc.id] = el;
+  });
+
+  playerEl = document.createElement('div');
+  playerEl.className = 'player-dot';
+  pinLayer.appendChild(playerEl);
+
+  map.on('move zoom viewreset', positionPins);
+  positionPins();
+
+  setTimeout(()=>{ map.invalidateSize(); positionPins(); }, 50);
+  setTimeout(()=>{ map.invalidateSize(); positionPins(); }, 350);
+  window.addEventListener('resize', ()=>{ map.invalidateSize(); positionPins(); });
+}
+
+function positionPins(){
+  if(!map) return;
+  LOCATIONS.forEach(loc=>{
+    const pt = map.latLngToContainerPoint([loc.lat, loc.lng]);
+    const el = pinEls[loc.id];
+    if(!el) return;
+    el.style.left = (pt.x - 17) + 'px';
+    el.style.top = (pt.y - 30) + 'px';
+  });
+  if(state){
+    const cur = LOCATIONS.find(l=>l.id===state.currentLoc);
+    if(cur){
+      const pt = map.latLngToContainerPoint([cur.lat, cur.lng]);
+      playerEl.style.left = (pt.x - 9) + 'px';
+      playerEl.style.top = (pt.y - 9) + 'px';
+    }
+  }
+}
+
+function updatePlayerMarker(){
+  const loc = LOCATIONS.find(l=>l.id===state.currentLoc);
+  map.flyTo([loc.lat, loc.lng], map.getZoom() < 13 ? 14.3 : map.getZoom(), { duration:0.9 });
+  positionPins();
+}
+
+function refreshPinStyles(){
+  LOCATIONS.forEach(loc=>{
+    const done = loc.activities.every(a=>state.doneActivities.has(loc.id+':'+a.id));
+    if(pinEls[loc.id]) pinEls[loc.id].classList.toggle('visited', done);
+  });
+}
+
+// ---------------- UI: STATS ----------------
+function flashStat(id, dir){
+  const el = document.getElementById(id);
+  el.classList.remove('up','down');
+  void el.offsetWidth;
+  el.classList.add(dir>0?'up':'down','pulse');
+  setTimeout(()=>el.classList.remove('pulse'), 300);
+}
+function renderStats(prev){
+  document.getElementById('stat-time').textContent = clockLabel(state.time);
+  document.getElementById('stat-money').textContent = '€'+state.money.toFixed(2).replace(/\.00$/,'');
+  document.getElementById('stat-energy').textContent = state.energy;
+  document.getElementById('stat-mood').textContent = state.mood;
+  if(prev){
+    if(state.money!==prev.money) flashStat('stat-money', state.money-prev.money);
+    if(state.energy!==prev.energy) flashStat('stat-energy', state.energy-prev.energy);
+    if(state.mood!==prev.mood) flashStat('stat-mood', state.mood-prev.mood);
+  }
+}
+
+// ---------------- PANEL ----------------
+let panelTravelPending = 0;
+let panelLocId = null;
+
+function openPanel(locId){
+  panelLocId = locId;
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  panelTravelPending = travelMinutes(state.currentLoc, locId);
+
+  document.getElementById('panel-cat').textContent = CAT_LABELS[loc.cat];
+  document.getElementById('panel-title').textContent = loc.name;
+  document.getElementById('panel-travel').textContent = panelTravelPending>0
+    ? ('🚶 about '+panelTravelPending+' min to get here')
+    : "You're already here";
+
+  renderPanelBody(loc, true);
+  document.getElementById('panel').classList.add('open');
+}
+
+function renderPanelBody(loc, showIntro){
+  const body = document.getElementById('panel-body');
+  let html = '';
+  if(showIntro){
+    html += '<p>'+loc.intro+'</p>';
+  }
+  loc.activities.forEach(act=>{
+    const key = loc.id+':'+act.id;
+    const isDone = state.doneActivities.has(key);
+    const totalTime = panelTravelPending + act.time;
+    const notEnoughTime = state.time + totalTime > TOTAL_MIN;
+    const notEnoughMoney = act.money > state.money + 1e-6;
+    const notEnoughEnergy = act.energy < 0 && Math.abs(act.energy) > state.energy;
+    const tooEarly = act.minMinutes && state.time < act.minMinutes;
+    const blocked = isDone || notEnoughTime || notEnoughMoney || notEnoughEnergy || tooEarly;
+
+    html += '<div class="activity '+(blocked?'disabled':'')+'">';
+    html += '<div class="activity-label">'+act.label+'</div>';
+    html += '<div class="activity-costs">';
+    html += '<span class="cost-chip">⏱ '+totalTime+' min</span>';
+    html += '<span class="cost-chip">€ '+act.money.toFixed(2).replace(/\.00$/,'')+'</span>';
+    html += '<span class="cost-chip">⚡ '+(act.energy>0?'+':'')+act.energy+'</span>';
+    html += '</div>';
+    if(isDone) html += '<div class="activity-note">Already done today.</div>';
+    else if(tooEarly) html += '<div class="activity-note">Not open yet — try again later in the day.</div>';
+    else if(notEnoughTime) html += '<div class="activity-note">Not enough daylight left.</div>';
+    else if(notEnoughMoney) html += '<div class="activity-note">You can&#39;t afford this right now.</div>';
+    else if(notEnoughEnergy) html += '<div class="activity-note">You&#39;re too tired — rest up somewhere first.</div>';
+    html += '<button class="pick-btn" data-loc="'+loc.id+'" data-act="'+act.id+'" '+(blocked?'disabled':'')+'>Do this</button>';
+    html += '</div>';
+  });
+  body.innerHTML = html;
+  body.querySelectorAll('.pick-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>doActivity(btn.dataset.loc, btn.dataset.act));
+  });
+}
+
+function doActivity(locId, actId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  const act = loc.activities.find(a=>a.id===actId);
+  const prev = {money:state.money, energy:state.energy, mood:state.mood};
+
+  const travel = panelTravelPending;
+  panelTravelPending = 0; // only charged once per visit
+
+  let moodDelta, text;
+  if(act.random){
+    if(Math.random() < act.random.chance){ moodDelta = act.random.good.mood; text = act.random.good.text; }
+    else { moodDelta = act.random.bad.mood; text = act.random.bad.text; }
+  } else {
+    moodDelta = act.mood; text = act.text;
+  }
+
+  let flavor = '';
+  if(travel >= 15 && Math.random() < 0.4){
+    flavor = TRAVEL_FLAVOR[Math.floor(Math.random()*TRAVEL_FLAVOR.length)] + ' ';
+  }
+
+  state.time += travel + act.time;
+  state.money = Math.round((state.money - act.money)*100)/100;
+  state.energy = clamp(state.energy + act.energy, 0, 100);
+  state.mood = clamp(state.mood + moodDelta, 0, 100);
+  state.currentLoc = locId;
+  state.doneActivities.add(locId+':'+actId);
+  state.visitedLocs.add(locId);
+  state.log.push({ time: clockLabel(state.time), text: flavor + text });
+
+  renderStats(prev);
+  refreshPinStyles();
+  updatePlayerMarker();
+
+  document.getElementById('panel-travel').textContent = "You're here now";
+
+  let html = '<div class="outcome-box"><p>'+flavor+text+'</p><div class="delta-row">';
+  html += '<span class="delta-chip '+(moodDelta>=0?'pos':'neg')+'">Mood '+(moodDelta>=0?'+':'')+moodDelta+'</span>';
+  if(act.energy!==0) html += '<span class="delta-chip '+(act.energy>=0?'pos':'neg')+'">Energy '+(act.energy>=0?'+':'')+act.energy+'</span>';
+  if(act.money>0) html += '<span class="delta-chip neg">-€'+act.money.toFixed(2).replace(/\.00$/,'')+'</span>';
+  html += '</div></div>';
+  renderPanelBody(loc, false);
+  document.getElementById('panel-body').insertAdjacentHTML('afterbegin', html);
+
+  maybeAutoEnd();
+}
+
+function closePanel(){
+  document.getElementById('panel').classList.remove('open');
+}
+
+// ---------------- END OF DAY ----------------
+function maybeAutoEnd(){
+  const remaining = TOTAL_MIN - state.time;
+  if(remaining < 10){
+    setTimeout(()=>showSummary(), 500);
+  }
+}
+
+function showSummary(){
+  closePanel();
+  document.getElementById('screen-game').classList.remove('active');
+  document.getElementById('screen-summary').classList.add('active');
+
+  const visitedCount = Array.from(state.visitedLocs).filter(id=>id!=='centraal').length;
+  const bonus = Math.min(10, visitedCount*2);
+  const score = clamp(state.mood + bonus, 0, 100);
+
+  let tier;
+  if(score>=85) tier="The Perfect Utrecht Day";
+  else if(score>=65) tier="A Lovely Day Out";
+  else if(score>=45) tier="A Decent Wander";
+  else if(score>=25) tier="Could've Gone Better";
+  else tier="A Rough Day in Utrecht";
+
+  document.getElementById('sum-eyebrow').textContent = clockLabel(state.time)+' · the day is done';
+  document.getElementById('sum-tier').textContent = tier;
+  document.getElementById('sum-mood').textContent = state.mood;
+  document.getElementById('sum-visited').textContent = visitedCount;
+  document.getElementById('sum-money').textContent = '€'+state.money.toFixed(2).replace(/\.00$/,'');
+  document.getElementById('sum-energy').textContent = state.energy;
+
+  const journal = document.getElementById('journal');
+  if(state.log.length===0){
+    journal.innerHTML = '<div class="journal-entry"><div class="journal-text">You barely left the station platform. Sometimes a day is just a day.</div></div>';
+  } else {
+    journal.innerHTML = state.log.map(e=>
+      '<div class="journal-entry"><div class="journal-time">'+e.time+'</div><div class="journal-text">'+e.text+'</div></div>'
+    ).join('');
+  }
+}
+
+// ---------------- FLOW WIRING ----------------
+document.getElementById('btn-go-utrecht').addEventListener('click', ()=>{
+  document.getElementById('intro-modal').classList.add('active');
+});
+document.getElementById('btn-begin').addEventListener('click', ()=>{
+  document.getElementById('intro-modal').classList.remove('active');
+  document.getElementById('screen-start').classList.remove('active');
+  document.getElementById('screen-game').classList.add('active');
+  state = freshState();
+  if(!map){ initMap(); } else { refreshPinStyles(); updatePlayerMarker(); }
+  renderStats(null);
+});
+document.getElementById('panel-close').addEventListener('click', closePanel);
+document.getElementById('end-day-btn').addEventListener('click', ()=>{
+  if(confirm('End your day here and see how it went?')) showSummary();
+});
+document.getElementById('btn-again').addEventListener('click', ()=>{
+  document.getElementById('screen-summary').classList.remove('active');
+  document.getElementById('screen-start').classList.add('active');
+});
+
+})();
+</script>
+</body>
+</html>
