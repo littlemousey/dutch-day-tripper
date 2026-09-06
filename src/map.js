@@ -1,4 +1,4 @@
-import { Map as MapLibreMap, Marker, NavigationControl, config } from 'maplibre-gl';
+import { Map as MapLibreMap, LngLatBounds, Marker, NavigationControl, config } from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -16,8 +16,30 @@ config.WORKER_URL = maplibreWorkerUrl;
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 // MapLibre serves 512px tiles, so a given zoom covers half the ground Leaflet's
 // 256px tiles did at the same number: 13.3 here frames the city like the
-// prototype's 14.3, keeping every pin on screen.
+// prototype's 14.3 did.
 const DEFAULT_ZOOM = 13.3;
+const FIT_PADDING = 48;
+// Domplein — what the view falls back to when the window is too narrow to hold
+// the whole set of locations.
+const CENTRE_ANCHOR = [5.1215, 52.0908];
+
+function locationBounds() {
+  const bounds = new LngLatBounds();
+  for (const loc of LOCATIONS) bounds.extend([loc.lng, loc.lat]);
+  return bounds;
+}
+
+// The Science Park locations sit ~4.5km east of the station, so a plain fit to
+// all the pins zooms out far enough that the dozen centre ones collapse into a
+// single cluster badge — useless on a phone. The zoom therefore stays put and
+// only the centring adapts: show everything when the viewport is wide enough to
+// hold it at this zoom, otherwise frame the old city centre and let the player
+// pan east.
+function cityView() {
+  const cam = map.cameraForBounds(locationBounds(), { padding: FIT_PADDING, maxZoom: DEFAULT_ZOOM });
+  const fitsOnScreen = cam && cam.zoom >= DEFAULT_ZOOM - 1e-6;
+  return { center: fitsOnScreen ? cam.center : CENTRE_ANCHOR, zoom: DEFAULT_ZOOM };
+}
 
 // The visible tip of a .pin sits 24px below the element's centre: the pin is a
 // 34px square rotated -45deg, so its sharp corner lands at the bottom of a
@@ -212,10 +234,11 @@ export function initMap({ onSelect }) {
   map = new MapLibreMap({
     container: 'map',
     style: STYLE_URL,
-    center: [START.lng, START.lat],
+    center: CENTRE_ANCHOR,
     zoom: DEFAULT_ZOOM,
     attributionControl: { compact: true },
   });
+  map.jumpTo(cityView());
   map.addControl(new NavigationControl({ showCompass: false }), 'top-left');
 
   map.on('load', () => {
@@ -273,7 +296,7 @@ export function refreshPinStyles() {
 
 export function resetMapView() {
   playerMarker.setLngLat([START.lng, START.lat]);
-  map.flyTo({ center: [START.lng, START.lat], zoom: DEFAULT_ZOOM, duration: 600 });
+  map.flyTo({ ...cityView(), duration: 600 });
   refreshPinStyles();
 }
 
