@@ -21,8 +21,15 @@ body{
   font-family:'Inter',sans-serif;
   color:var(--ink);
   overflow:hidden;
+  overscroll-behavior:none;
+  -webkit-text-size-adjust:100%;
 }
-#app{position:relative;width:100%;height:100vh;background:var(--paper);}
+/* dvh, so the app doesn't hide its bottom row under a mobile browser's
+   collapsing address bar; the vh line is the fallback for browsers without it. */
+#app{position:relative;width:100%;height:100vh;height:100dvh;background:var(--paper);}
+
+/* Kill the grey flash and the 300ms wait-for-double-tap on every control. */
+button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 
 .screen{position:absolute;inset:0;display:none;}
 .screen.active{display:flex;flex-direction:column;}
@@ -33,11 +40,15 @@ body{
     radial-gradient(ellipse at 20% 0%, rgba(199,150,31,0.16), transparent 55%),
     radial-gradient(ellipse at 85% 100%, rgba(40,67,61,0.25), transparent 55%),
     var(--paper);
-  align-items:center;justify-content:center;
+  align-items:center;justify-content:flex-start;
   padding:32px;
+  overflow-y:auto;
 }
+/* margin:auto rather than justify-content:center — centring a flex item that
+   overflows its container clips the top of it beyond reach of the scrollbar. */
 .start-card{
   max-width:640px;width:100%;
+  margin:auto 0;
   text-align:center;
 }
 .eyebrow{
@@ -108,7 +119,7 @@ body{
 .modal-card{
   background:var(--paper);max-width:520px;width:100%;border-radius:14px;
   padding:34px 32px;box-shadow:var(--shadow);border:1px solid var(--line);
-  max-height:82vh;overflow-y:auto;
+  max-height:82vh;max-height:82dvh;overflow-y:auto;overscroll-behavior:contain;
 }
 .modal-card h2{
   font-family:'Fraunces',serif;font-size:28px;margin:0 0 14px 0;color:var(--ink);
@@ -129,6 +140,7 @@ body{
   background:var(--ink);color:var(--paper);
   display:flex;align-items:center;gap:0;
   padding:0 4px;flex-wrap:wrap;
+  padding-top:env(safe-area-inset-top);
   border-bottom:3px solid var(--mustard);
   z-index:20;position:relative;
 }
@@ -162,7 +174,11 @@ body{
 }
 #end-day-btn:hover{background:var(--mustard);color:var(--ink);}
 
-#map-wrap{position:relative;flex:1;min-height:0;}
+/* overflow:hidden matters on a phone: both the closed #panel (parked off the
+   right/bottom edge by its transform) and the map markers for locations
+   currently panned off screen otherwise widen the document, and a mobile
+   browser answers that by zooming the whole page out to fit. */
+#map-wrap{position:relative;flex:1;min-height:0;overflow:hidden;}
 /* z-index:0 is load-bearing: it makes #map a stacking context so the map
    library's internal layers stay contained. Without it their z-indexes leak
    into #map-wrap and paint over #panel — the panel still exists and still
@@ -230,11 +246,23 @@ body{
 .panel-cat{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--mustard);margin-bottom:6px;}
 .panel-title{font-family:'Fraunces',serif;font-size:24px;font-weight:700;margin:0;}
 .panel-travel{font-size:12.5px;color:#cfe0da;margin-top:8px;font-family:'JetBrains Mono',monospace;}
-.panel-body{padding:20px 22px;overflow-y:auto;flex:1;}
+.panel-body{padding:20px 22px;overflow-y:auto;flex:1;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
 .panel-body p{font-size:14.5px;line-height:1.65;color:#3d3730;margin:0 0 16px 0;}
 .close-x{
-  position:absolute;top:16px;right:16px;background:none;border:none;color:var(--paper);
+  position:absolute;top:8px;right:8px;background:none;border:none;color:var(--paper);
   font-size:20px;cursor:pointer;line-height:1;
+  /* 44px square: the ✕ glyph is small, the thing you have to hit with a thumb
+     should not be. */
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+}
+
+/* Grip bar for the mobile bottom sheet — the drag affordance, shown only when
+   the panel is actually a sheet (see the phone media query). */
+.sheet-grip{
+  display:none;
+  width:40px;height:4px;border-radius:999px;
+  background:rgba(246,241,231,0.5);
+  margin:0 auto 10px auto;
 }
 
 .activity{
@@ -278,10 +306,11 @@ body{
 
 /* ---------- SUMMARY ---------- */
 #screen-summary{
-  align-items:center;justify-content:center;padding:30px;
+  align-items:center;justify-content:flex-start;padding:30px;
+  padding-bottom:calc(30px + env(safe-area-inset-bottom));
   background:var(--paper);overflow-y:auto;
 }
-.summary-card{max-width:600px;width:100%;padding:10px 0 40px 0;}
+.summary-card{max-width:600px;width:100%;margin:auto 0;padding:10px 0 40px 0;}
 .summary-tier{font-family:'Fraunces',serif;font-size:clamp(30px,5vw,44px);font-weight:700;color:var(--ink);margin:6px 0 4px 0;text-align:center;}
 .summary-eyebrow{text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:var(--brick);}
 .summary-stats{display:flex;justify-content:center;gap:26px;margin:26px 0 30px 0;flex-wrap:wrap;}
@@ -296,9 +325,101 @@ body{
 .journal-text{font-size:13.5px;line-height:1.55;color:#463f36;}
 .summary-actions{display:flex;justify-content:center;margin-top:30px;}
 
+/* ---------- PHONES ---------- */
+/* The whole point of this block is the map: at 390x844 the stock bar wrapped
+   to ~170px (title row, two rows of stats, then the button on its own line),
+   leaving a sliver of city. Here the title and the End button share one row and
+   the four stats share the next, in a single non-wrapping strip. */
 @media (max-width:720px){
-  #panel{top:auto;left:0;right:0;width:auto;max-width:none;height:66vh;transform:translateY(100%);border-radius:16px 16px 0 0;}
+  #topbar{flex-wrap:wrap;align-items:center;padding:env(safe-area-inset-top) 0 0 0;}
+  .tb-title{order:1;flex:1;min-width:0;font-size:14px;padding:9px 12px;
+            overflow:hidden;text-overflow:ellipsis;}
+  #end-day-btn{order:2;margin:6px 10px 6px 0;padding:8px 13px;font-size:12px;}
+  .stat-strip{order:3;flex:0 0 100%;flex-wrap:nowrap;
+              border-top:1px solid rgba(246,241,231,0.15);}
+  /* The stock min-width:88px is what pushed Mood onto its own line. Time,
+     Budget and Energy are short and fixed-shape, so they size to their content
+     and Mood takes every pixel left over — it carries the longest string in the
+     bar ("Delighted 100") plus the hungry/worn-out line underneath, and at
+     360px an equal four-way split truncated both. */
+  .stat{flex:0 1 auto;min-width:0;padding:6px 9px 7px 9px;}
+  .stat:first-child{border-left:none;}
+  .stat-mood{flex:1 1 auto;min-width:0;}
+  .stat-label{font-size:8px;letter-spacing:0.1em;}
+  .stat-value{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .stat-num{font-size:10px;margin-left:5px;}
+  .stat-needs{font-size:8px;min-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* Bottom sheet. Height is a share of the map area rather than of the
+     viewport, so it shrinks with the bar instead of on top of it. */
+  #panel{
+    top:auto;left:0;right:0;width:auto;max-width:none;height:62%;
+    transform:translateY(100%);
+    border-radius:18px 18px 0 0;
+    box-shadow:0 -10px 30px rgba(0,0,0,0.22);
+  }
   #panel.open{transform:translateY(0);}
-  .tb-title{font-size:15px;padding:10px 12px;}
-  .stat{min-width:70px;padding:8px 10px;}
+  .panel-head{
+    padding:10px 20px 15px 20px;border-radius:18px 18px 0 0;
+    /* the head is the drag surface, so the browser must not claim the
+       vertical swipe for scrolling first */
+    touch-action:none;
+  }
+  .sheet-grip{display:block;}
+  .panel-title{font-size:21px;}
+  .panel-body{padding:18px 20px calc(20px + env(safe-area-inset-bottom)) 20px;}
+  .pick-btn{padding:12px;font-size:14px;}
+  .activity{padding:13px 14px;}
+
+  /* Three budget chips, one per row, rather than a ragged 2 + 1 wrap. */
+  .mode-row{display:grid;grid-template-columns:1fr;gap:8px;max-width:320px;margin:0 auto 26px auto;}
+  .mode-chip{min-width:0;}
+  #screen-start{padding:24px 20px calc(24px + env(safe-area-inset-bottom)) 20px;}
+  .start-sub{font-size:15px;margin-bottom:28px;}
+  .city-row{gap:8px;margin-bottom:26px;}
+  .city-chip{padding:8px 13px;font-size:11px;}
+  .modal-card{padding:26px 22px 0 22px;}
+  .modal-card h2{font-size:23px;}
+  /* On a 640px-tall phone the intro runs past the fold and takes "Step
+     outside" with it. Sticky keeps the one button that matters on screen while
+     the text scrolls under it; the paper-coloured shadow is the fade. */
+  .modal-card .modal-actions{
+    position:sticky;bottom:0;
+    margin-top:18px;padding:14px 0 22px 0;
+    background:var(--paper);
+    box-shadow:0 -14px 14px -6px var(--paper);
+  }
+  .modal-card .modal-actions .btn{flex:1;padding:14px 20px;}
+  #screen-summary{padding:24px 20px calc(24px + env(safe-area-inset-bottom)) 20px;}
+  /* Four tiles wrap 3 + 1 at phone widths; a 2x2 grid is steadier. */
+  .summary-stats{display:grid;grid-template-columns:1fr 1fr;gap:18px 12px;}
+  .journal-time{min-width:44px;}
+
+  /* MapLibre's zoom buttons are 29px square by default — under the 44px
+     minimum, and this is the one control you can't pinch your way around. */
+  .maplibregl-ctrl-group button{width:40px;height:40px;}
+}
+
+/* ---------- PHONE ON ITS SIDE ---------- */
+/* A bottom sheet over a ~340px-tall map leaves neither usable, so landscape
+   goes back to the desktop side panel and folds the bar into a single row. */
+@media (max-width:900px) and (max-height:500px){
+  .tb-title{display:none;}
+  .stat-strip{order:1;flex:1 1 auto;flex-wrap:nowrap;border-top:none;}
+  .stat{padding:5px 9px 6px 9px;}
+  #end-day-btn{order:2;margin:5px 10px;}
+  #panel{
+    top:0;bottom:0;left:auto;right:0;width:340px;max-width:62%;height:auto;
+    transform:translateX(100%);border-radius:0;
+    box-shadow:-8px 0 24px rgba(0,0,0,0.18);
+  }
+  #panel.open{transform:translateX(0);}
+  .panel-head{padding:14px 18px 12px 18px;border-radius:0;touch-action:auto;}
+  .sheet-grip{display:none;}
+}
+
+/* Someone who asked the OS to stop animating things means it. */
+@media (prefers-reduced-motion:reduce){
+  #panel{transition:none;}
+  .player-dot{animation:none;}
 }

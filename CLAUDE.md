@@ -215,16 +215,54 @@ keeping consistent:
   transit/ticket display. The activity panel is a slide-in sheet (side panel
   on desktop, bottom sheet on mobile).
 
+### Responsive layout
+
+Three layouts, all in `style.css`, chosen so the map keeps as much of the
+screen as possible:
+
+- **Desktop** (>720px): title, stats and button on one bar row; 400px side panel.
+- **Phone portrait** (≤720px): the bar wraps to two rows — title + "End the
+  day", then the four stats — and the panel becomes a bottom sheet at 62% of
+  the *map area* (not of the viewport, so it shrinks with the bar rather than
+  on top of it). This is the fixed version of the old roadmap item: the stock
+  bar wrapped to ~170px at 390x844, now 104px.
+- **Phone landscape** (≤900px and ≤500px tall): a bottom sheet over a ~340px
+  map leaves neither usable, so this drops the title, folds the bar to a single
+  56px row, and goes back to the side panel.
+
+Two things in there are deliberate and easy to undo by accident:
+
+- In the phone bar, Time/Budget/Energy size to their content and **Mood takes
+  the slack**. Mood carries the longest string in the bar ("Delighted 100")
+  plus the hungry/worn-out line under it; an equal four-way split truncated
+  both at 360px. Worst case is checked down to 320px.
+- Heights use `dvh` (`#app`, the modal) so the bottom row doesn't hide under a
+  mobile browser's collapsing address bar, and the start/summary screens centre
+  their card with `margin:auto` rather than `justify-content:center` — centring
+  a flex item taller than its container clips the top of it out of scroll range.
+
+The panel is also **draggable to dismiss** on a phone (`initPanelGestures()` in
+`ui.js`): the head follows your thumb and closes past 30% of the sheet height.
+Only the head drags, so the body still scrolls; it needs `touch-action:none` on
+`.panel-head` or the browser claims the swipe first.
+
+Finally, `map.js` knows the panel covers part of the map (`panelCover()`), and
+both nudges a tapped pin out from under it (`revealBehindPanel()`) and centres
+the player in the *visible* strip (`visibleCentreOffset()`). Which edge is
+covered is read from the panel's layout box rather than a duplicated
+breakpoint. Those read `offsetTop`/`offsetLeft`, not `getBoundingClientRect()`:
+the rect is mid-transition the instant `.open` is set and reports the sheet
+still off-screen.
+
 ## Near-term roadmap (not urgent, in rough priority order)
 
-1. **Mobile layout pass.** The bottom-sheet panel works, but the top bar
-   breaks on a phone: the stat strip wraps to roughly 200px tall and leaves
-   only a sliver of map. Observed at 390x844, not yet fixed.
-2. Persist a finished day (e.g. via `localStorage` or a simple backend) so
+1. Persist a finished day (e.g. via `localStorage` or a simple backend) so
    people can compare runs / share a result.
-3. A second city (Amsterdam or Delft are natural next picks) — the data
+2. A second city (Amsterdam or Delft are natural next picks) — the data
    model already supports multiple cities via the city-select screen, which
    currently only unlocks Utrecht.
+3. Modelling the tram, which would make the Science Park trip a real choice
+   rather than a 70-minute walk priced as one (see the note on those pins).
 
 ## Working style notes for you (Claude Code)
 

@@ -229,3 +229,43 @@ export function resetPanel() {
   pendingTravel = 0;
   closePanel();
 }
+
+// A sheet you can only dismiss with a small ✕ in the corner is the wrong
+// gesture on a phone, so it also follows your thumb and closes on a flick down.
+// Only the head drags — the body underneath keeps scrolling normally.
+const DISMISS_FRACTION = 0.3;
+
+export function initPanelGestures() {
+  const panel = $('panel');
+  const head = $('panel-head');
+  let startY = null;
+  let dragged = 0;
+
+  // Layout, not a media query: the panel is a bottom sheet when it spans the
+  // full width of the map area, and a side panel when it doesn't.
+  const isSheet = () => panel.offsetWidth >= panel.parentElement.clientWidth - 1;
+
+  head.addEventListener('pointerdown', (ev) => {
+    if (!isSheet() || ev.target.closest('button')) return;
+    startY = ev.clientY;
+    dragged = 0;
+    panel.style.transition = 'none';
+    head.setPointerCapture(ev.pointerId);
+  });
+
+  head.addEventListener('pointermove', (ev) => {
+    if (startY === null) return;
+    dragged = Math.max(0, ev.clientY - startY);
+    panel.style.transform = `translateY(${dragged}px)`;
+  });
+
+  const release = () => {
+    if (startY === null) return;
+    startY = null;
+    panel.style.transition = '';
+    panel.style.transform = '';
+    if (dragged > panel.offsetHeight * DISMISS_FRACTION) closePanel();
+  };
+  head.addEventListener('pointerup', release);
+  head.addEventListener('pointercancel', release);
+}

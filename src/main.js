@@ -8,6 +8,7 @@ import {
   renderSummary,
   resetPanel,
   setDayEndHandler,
+  initPanelGestures,
 } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
@@ -66,6 +67,7 @@ $('btn-go-utrecht').addEventListener('click', () => {
 });
 $('btn-begin').addEventListener('click', startDay);
 $('panel-close').addEventListener('click', closePanel);
+initPanelGestures();
 $('end-day-btn').addEventListener('click', () => {
   if (confirm('End your day here and see how it went?')) endDay();
 });

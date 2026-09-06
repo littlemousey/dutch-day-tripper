@@ -46,6 +46,51 @@ function cityView() {
 // 48px bounding box. Offsetting by that puts the tip on the real coordinate.
 const PIN_TIP_OFFSET = [0, -24];
 
+// A pin under the open panel may as well not be on screen. Both helpers below
+// read the panel's *layout* box — offsetLeft/offsetTop, not
+// getBoundingClientRect: the rect is mid-transition the instant .open is set
+// and would report the sheet still off the bottom of the screen.
+// Which edge the panel covers is read from that box too rather than from a
+// duplicated breakpoint: full width means the phone's bottom sheet, anything
+// narrower means the desktop side panel.
+function panelCover() {
+  const panel = document.getElementById('panel');
+  if (!panel || !panel.classList.contains('open')) return null;
+  const container = map.getContainer();
+  return {
+    isSheet: panel.offsetWidth >= container.clientWidth - 1,
+    left: panel.offsetLeft,
+    top: panel.offsetTop,
+    width: panel.offsetWidth,
+  };
+}
+
+// Centres a point in the strip of map the panel leaves visible instead of in
+// the middle of the container, half of which may be covered.
+function visibleCentreOffset() {
+  const cover = panelCover();
+  if (!cover) return [0, 0];
+  return cover.isSheet
+    ? [0, -(map.getContainer().clientHeight - cover.top) / 2]
+    : [-cover.width / 2, 0];
+}
+
+// Clearance for the pin's own body (34px tall, drawn above its coordinate)
+// plus a little air, so the pin lands fully clear of the panel edge.
+const REVEAL_MARGIN = 56;
+
+// Nudges the camera the minimum distance needed to bring a point out from
+// under the panel — and does nothing at all when it was never covered.
+function revealBehindPanel(lngLat) {
+  const cover = panelCover();
+  if (!cover) return;
+  const pt = map.project(lngLat);
+  const dx = cover.isSheet ? 0 : Math.max(0, pt.x - (cover.left - REVEAL_MARGIN));
+  const dy = cover.isSheet ? Math.max(0, pt.y - (cover.top - REVEAL_MARGIN)) : 0;
+  if (!dx && !dy) return;
+  map.panBy([dx, dy], { duration: 450 });
+}
+
 // The stock positron style is neutral grey. These overrides pull the basemap
 // into the game's palette: warm paper for land, sandstone buildings, muted
 // canal-green water (Utrecht being a canal city). Everything stays low
@@ -148,6 +193,8 @@ function makePinElement(loc) {
   wrapper.addEventListener('click', (ev) => {
     ev.stopPropagation();
     onSelectLocation(loc.id);
+    // The panel is open by now, so this can measure what it actually covers.
+    revealBehindPanel([loc.lng, loc.lat]);
   });
   return wrapper;
 }
@@ -165,7 +212,12 @@ function makeClusterElement(clusterId, count, allDone) {
     if (!source || !marker) return;
     // A little past the break-apart zoom, so they visibly separate.
     const zoom = (await source.getClusterExpansionZoom(clusterId)) + 0.3;
-    map.easeTo({ center: marker.getLngLat(), zoom, duration: 700 });
+    map.easeTo({
+      center: marker.getLngLat(),
+      zoom,
+      offset: visibleCentreOffset(),
+      duration: 700,
+    });
   });
   return el;
 }
@@ -282,7 +334,7 @@ export function initMap({ onSelect }) {
 export function updatePlayerMarker() {
   const loc = findLocation(state.currentLoc);
   playerMarker.setLngLat([loc.lng, loc.lat]);
-  map.flyTo({ center: [loc.lng, loc.lat], duration: 900 });
+  map.flyTo({ center: [loc.lng, loc.lat], offset: visibleCentreOffset(), duration: 900 });
 }
 
 // Completing an activity can exhaust a location, which changes both the pin's
