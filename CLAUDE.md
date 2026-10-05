@@ -13,23 +13,26 @@ Utrecht is the first (and currently only) city.
 
 A **Vite + Svelte 5 project**, mid-migration from plain JS (see "Svelte
 migration" below). `npm install && npm run dev`; `npm run check` runs
-svelte-check.
+svelte-check over the components *and* the plain `.js` (via `jsconfig.json`).
 
 ```
 /index.html         markup for the start and game screens (summary is a component)
 /style.css          full stylesheet (still global; components use its classes)
 /vite.config.js
 /svelte.config.js   forces runes mode
+/jsconfig.json      lets svelte-check type-check plain JS (non-strict)
 /src
   main.js           app bootstrap, screen/flow wiring, mounts components
   game.svelte.js    reactive copy of the game state for components (`sync()`)
+  vite-env.d.ts     Vite's types, so CSS and `?worker&url` imports check
   components/
+    StatBar.svelte  the time/budget/energy/mood strip, pulse-and-tint on change
     Summary.svelte  end-of-day summary and journal
   state.js          game state, clamp/format helpers
   locations.js      LOCATIONS data, categories, travel flavour text
   activities.js     travel cost, activity resolution, scoring
   map.js            MapLibre init, pin markers, player marker
-  ui.js             stat bar and activity panel rendering (plain JS, for now)
+  ui.js             activity panel rendering (plain JS, for now)
 /tools
   playtest.mjs      headless balance harness (`node tools/playtest.mjs`)
   geocheck.mjs      coordinate audit against OpenStreetMap
@@ -79,8 +82,8 @@ fallback can never detect it. Don't go back to them without a key.
 ### Svelte migration
 
 The UI is moving to Svelte 5 one piece at a time; each piece is attached with
-`mount()` from `main.js`, so the app works after every step. Done: Summary.
-Next, in order: StatBar, StartScreen + IntroModal, Panel (activity cards,
+`mount()` from `main.js`, so the app works after every step. Done: Summary, StatBar.
+Next, in order: StartScreen + IntroModal, Panel (activity cards,
 outcome chips, hints, drag-to-dismiss), then an `App.svelte` that owns the
 screen flow, and optionally moving `style.css` into scoped component styles.
 README.md needs updating once it lands.
@@ -98,9 +101,13 @@ README.md needs updating once it lands.
   isn't in the snapshot gets added to `snapshot()`.
 - `map.js` stays imperative; it will be wrapped by a component, not rewritten.
   It reads `#panel` by id (`panelCover()`), so the panel keeps that id.
-- The build does not catch a missing variable in plain `.js` (a dropped import
-  froze the stat bar once and still built cleanly). Play a day in the browser
-  after each step.
+- `npm run check` must stay at 0 errors, 0 warnings. It type-checks the plain
+  JS too, non-strict, because the build does not: a dropped import once froze
+  the stat bar and still built cleanly. Where the checker can't infer a shape
+  (tuples, `querySelectorAll` results) a JSDoc `@type` fixes it; don't turn
+  `strict` on without a plan, it adds ~160 null-check errors.
+- Still play a day in the browser after each step — screenshots at desktop,
+  390x844 and 844x390, per the layout notes below.
 
 ## Game design spec
 

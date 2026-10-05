@@ -8,6 +8,7 @@ import { moodLabel, isHungry, isWornOut, finalScore } from './activities.js';
 function snapshot() {
   const { visitedCount, tier } = finalScore();
   return {
+    time: state.time,
     clock: clockLabel(state.time),
     money: state.money,
     energy: state.energy,

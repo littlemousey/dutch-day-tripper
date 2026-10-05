@@ -3,7 +3,6 @@ import { mount } from 'svelte';
 import { BUDGET_MODES, budgetMode, setBudgetMode, resetState } from './state.js';
 import { initMap, mapExists, resetMapView } from './map.js';
 import {
-  renderStats,
   openPanel,
   closePanel,
   resetPanel,
@@ -11,6 +10,7 @@ import {
   initPanelGestures,
 } from './ui.js';
 import { sync } from './game.svelte.js';
+import StatBar from './components/StatBar.svelte';
 import Summary from './components/Summary.svelte';
 
 const $ = (id) => document.getElementById(id);
@@ -29,7 +29,7 @@ function renderModes() {
       </button>`,
   ).join('');
 
-  row.querySelectorAll('.mode-chip').forEach((btn) => {
+  /** @type {NodeListOf<HTMLButtonElement>} */ (row.querySelectorAll('.mode-chip')).forEach((btn) => {
     btn.addEventListener('click', () => {
       setBudgetMode(btn.dataset.mode);
       renderModes();
@@ -50,8 +50,6 @@ function startDay() {
 
   if (mapExists()) resetMapView();
   else initMap({ onSelect: openPanel });
-
-  renderStats(null);
 }
 
 function endDay() {
@@ -60,6 +58,8 @@ function endDay() {
 }
 
 setDayEndHandler(endDay);
+
+mount(StatBar, { target: $('topbar'), anchor: $('end-day-btn') });
 
 mount(Summary, {
   target: $('screen-summary'),

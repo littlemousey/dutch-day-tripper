@@ -125,6 +125,7 @@ export function doActivity(locId, actId, pendingTravel) {
 // A number out of 100 doesn't tell the player anything. The word does, and it's
 // what the summary and the top bar lead with; the number stays alongside it so
 // the arithmetic is still followable.
+/** @type {[number, string][]} */
 const MOOD_LADDER = [
   [90, 'Delighted'],
   [78, 'Glowing'],

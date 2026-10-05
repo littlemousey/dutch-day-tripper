@@ -21,6 +21,7 @@ const DEFAULT_ZOOM = 13.3;
 const FIT_PADDING = 48;
 // Domplein — what the view falls back to when the window is too narrow to hold
 // the whole set of locations.
+/** @type {[number, number]} */
 const CENTRE_ANCHOR = [5.1215, 52.0908];
 
 function locationBounds() {
@@ -44,6 +45,7 @@ function cityView() {
 // The visible tip of a .pin sits 24px below the element's centre: the pin is a
 // 34px square rotated -45deg, so its sharp corner lands at the bottom of a
 // 48px bounding box. Offsetting by that puts the tip on the real coordinate.
+/** @type {[number, number]} */
 const PIN_TIP_OFFSET = [0, -24];
 
 // A pin under the open panel may as well not be on screen. Both helpers below
@@ -150,6 +152,7 @@ const SOURCE_ID = 'locations';
 
 let map = null;
 let playerMarker = null;
+/** @type {(locId: string) => void} */
 let onSelectLocation = () => {};
 const locationMarkers = new Map();
 const clusterMarkers = new Map();

@@ -1,12 +1,11 @@
 import { CAT_LABELS, findLocation } from './locations.js';
-import { state, clockLabel, formatMoney } from './state.js';
+import { state, formatMoney } from './state.js';
 import {
   travelMinutes,
   isBlocked,
   doActivity,
   dayIsOver,
   freeActivitiesLeft,
-  moodLabel,
   foodNearby,
   restNearby,
   isHungry,
@@ -22,30 +21,6 @@ let onDayEnd = () => {};
 
 export function setDayEndHandler(fn) {
   onDayEnd = fn;
-}
-
-// ---------------- STATS ----------------
-function flashStat(id, dir) {
-  const el = $(id);
-  el.classList.remove('up', 'down');
-  void el.offsetWidth;
-  el.classList.add(dir > 0 ? 'up' : 'down', 'pulse');
-  setTimeout(() => el.classList.remove('pulse'), 300);
-}
-
-export function renderStats(prev) {
-  $('stat-time').textContent = clockLabel(state.time);
-  $('stat-money').textContent = formatMoney(state.money);
-  $('stat-energy').textContent = state.energy;
-  $('stat-mood-word').textContent = moodLabel();
-  $('stat-mood-num').textContent = Math.round(state.mood);
-  $('stat-mood-needs').textContent = [isHungry() && 'hungry', isWornOut() && 'worn out']
-    .filter(Boolean)
-    .join(' · ');
-  if (!prev) return;
-  if (state.money !== prev.money) flashStat('stat-money', state.money - prev.money);
-  if (state.energy !== prev.energy) flashStat('stat-energy', state.energy - prev.energy);
-  if (state.mood !== prev.mood) flashStat('stat-mood', state.mood - prev.mood);
 }
 
 // ---------------- PANEL ----------------
@@ -154,7 +129,7 @@ function renderPanelBody(loc, showIntro) {
     loc.activities.map((act) => activityMarkup(loc, act)).join('') +
     brokeNote(loc);
 
-  body.querySelectorAll('.pick-btn').forEach((btn) => {
+  /** @type {NodeListOf<HTMLButtonElement>} */ (body.querySelectorAll('.pick-btn')).forEach((btn) => {
     btn.addEventListener('click', () => pickActivity(btn.dataset.loc, btn.dataset.act));
   });
 }
@@ -188,7 +163,6 @@ function pickActivity(locId, actId) {
   pendingTravel = 0;
   sync();
 
-  renderStats(result.before);
   refreshPinStyles();
   updatePlayerMarker();
 
@@ -220,7 +194,7 @@ export function initPanelGestures() {
   const isSheet = () => panel.offsetWidth >= panel.parentElement.clientWidth - 1;
 
   head.addEventListener('pointerdown', (ev) => {
-    if (!isSheet() || ev.target.closest('button')) return;
+    if (!isSheet() || /** @type {Element} */ (ev.target).closest('button')) return;
     startY = ev.clientY;
     dragged = 0;
     panel.style.transition = 'none';
