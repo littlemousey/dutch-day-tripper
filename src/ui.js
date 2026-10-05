@@ -1,11 +1,10 @@
 import { CAT_LABELS, findLocation } from './locations.js';
-import { state, budgetMode, clockLabel, formatMoney } from './state.js';
+import { state, clockLabel, formatMoney } from './state.js';
 import {
   travelMinutes,
   isBlocked,
   doActivity,
   dayIsOver,
-  finalScore,
   freeActivitiesLeft,
   moodLabel,
   foodNearby,
@@ -14,6 +13,7 @@ import {
   isWornOut,
 } from './activities.js';
 import { updatePlayerMarker, refreshPinStyles } from './map.js';
+import { sync } from './game.svelte.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -186,6 +186,7 @@ function outcomeMarkup({ act, moodDelta, text, flavor, wear }) {
 function pickActivity(locId, actId) {
   const result = doActivity(locId, actId, pendingTravel);
   pendingTravel = 0;
+  sync();
 
   renderStats(result.before);
   refreshPinStyles();
@@ -196,33 +197,6 @@ function pickActivity(locId, actId) {
   $('panel-body').insertAdjacentHTML('afterbegin', outcomeMarkup(result));
 
   if (dayIsOver()) setTimeout(onDayEnd, 500);
-}
-
-// ---------------- SUMMARY ----------------
-export function renderSummary() {
-  const { visitedCount, tier } = finalScore();
-
-  $('sum-eyebrow').textContent =
-    clockLabel(state.time) + ' · the day is done · ' + budgetMode.label;
-  $('sum-tier').textContent = tier;
-  $('sum-mood').textContent = moodLabel();
-  $('sum-mood-lab').textContent = `Went home · ${Math.round(state.mood)}/100`;
-  $('sum-visited').textContent = visitedCount;
-  $('sum-money').textContent = formatMoney(state.money);
-  $('sum-energy').textContent = state.energy;
-
-  const journal = $('journal');
-  if (state.log.length === 0) {
-    journal.innerHTML =
-      '<div class="journal-entry"><div class="journal-text">You barely left the station platform. Sometimes a day is just a day.</div></div>';
-  } else {
-    journal.innerHTML = state.log
-      .map(
-        (e) =>
-          `<div class="journal-entry"><div class="journal-time">${e.time}</div><div class="journal-text">${e.text}</div></div>`,
-      )
-      .join('');
-  }
 }
 
 export function resetPanel() {

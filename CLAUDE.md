@@ -11,19 +11,25 @@ Utrecht is the first (and currently only) city.
 
 ## Current state
 
-A **Vite project** (plain JS, no framework). `npm install && npm run dev`.
+A **Vite + Svelte 5 project**, mid-migration from plain JS (see "Svelte
+migration" below). `npm install && npm run dev`; `npm run check` runs
+svelte-check.
 
 ```
-/index.html         markup for all three screens (start / game / summary)
-/style.css          full stylesheet
+/index.html         markup for the start and game screens (summary is a component)
+/style.css          full stylesheet (still global; components use its classes)
 /vite.config.js
+/svelte.config.js   forces runes mode
 /src
-  main.js           app bootstrap, screen/flow wiring
+  main.js           app bootstrap, screen/flow wiring, mounts components
+  game.svelte.js    reactive copy of the game state for components (`sync()`)
+  components/
+    Summary.svelte  end-of-day summary and journal
   state.js          game state, clamp/format helpers
   locations.js      LOCATIONS data, categories, travel flavour text
   activities.js     travel cost, activity resolution, scoring
   map.js            MapLibre init, pin markers, player marker
-  ui.js             stat bar, activity panel, summary/journal rendering
+  ui.js             stat bar and activity panel rendering (plain JS, for now)
 /tools
   playtest.mjs      headless balance harness (`node tools/playtest.mjs`)
   geocheck.mjs      coordinate audit against OpenStreetMap
@@ -70,9 +76,31 @@ CARTO's Voyager tiles (what the original prototype used) now require an API
 key and serve an "API KEY REQUIRED" watermark with HTTP 200, so a `tileerror`
 fallback can never detect it. Don't go back to them without a key.
 
-Keep it plain JS/HTML/CSS (no framework needed) unless you have a strong
-reason to reach for one — this app has one screen with a few states, some
-DOM updates, and a map. A framework would add more surface area, not less.
+### Svelte migration
+
+The UI is moving to Svelte 5 one piece at a time; each piece is attached with
+`mount()` from `main.js`, so the app works after every step. Done: Summary.
+Next, in order: StatBar, StartScreen + IntroModal, Panel (activity cards,
+outcome chips, hints, drag-to-dismiss), then an `App.svelte` that owns the
+screen flow, and optionally moving `style.css` into scoped component styles.
+README.md needs updating once it lands.
+
+- **Svelte 5 runes only** (`$props`, `$state`, `$derived`, `$effect`,
+  `onclick`, snippets) — never Svelte 4 (`export let`, `$:`, `on:click`,
+  stores, `<slot>`). `svelte.config.js` sets `runes: true`, which makes the
+  first two compile errors; `npm run check` fails on warnings, which catches
+  the rest. Keep it clean.
+- **Game logic stays plain JS.** `state.js`, `activities.js` and
+  `locations.js` must not import Svelte or use runes: `tools/playtest.mjs`
+  imports them straight into Node. Components read `game` from
+  `src/game.svelte.js`, a reactive snapshot of `state`, and anything that
+  changes the game calls `sync()` afterwards. Something a component needs that
+  isn't in the snapshot gets added to `snapshot()`.
+- `map.js` stays imperative; it will be wrapped by a component, not rewritten.
+  It reads `#panel` by id (`panelCover()`), so the panel keeps that id.
+- The build does not catch a missing variable in plain `.js` (a dropped import
+  froze the stat bar once and still built cleanly). Play a day in the browser
+  after each step.
 
 ## Game design spec
 

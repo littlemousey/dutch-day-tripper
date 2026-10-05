@@ -1,15 +1,17 @@
 import '../style.css';
+import { mount } from 'svelte';
 import { BUDGET_MODES, budgetMode, setBudgetMode, resetState } from './state.js';
 import { initMap, mapExists, resetMapView } from './map.js';
 import {
   renderStats,
   openPanel,
   closePanel,
-  renderSummary,
   resetPanel,
   setDayEndHandler,
   initPanelGestures,
 } from './ui.js';
+import { sync } from './game.svelte.js';
+import Summary from './components/Summary.svelte';
 
 const $ = (id) => document.getElementById(id);
 
@@ -43,6 +45,7 @@ function startDay() {
   $('intro-modal').classList.remove('active');
   showScreen('screen-game');
   resetState();
+  sync();
   resetPanel();
 
   if (mapExists()) resetMapView();
@@ -53,11 +56,15 @@ function startDay() {
 
 function endDay() {
   closePanel();
-  renderSummary();
   showScreen('screen-summary');
 }
 
 setDayEndHandler(endDay);
+
+mount(Summary, {
+  target: $('screen-summary'),
+  props: { onagain: () => showScreen('screen-start') },
+});
 
 renderModes();
 
@@ -71,4 +78,3 @@ initPanelGestures();
 $('end-day-btn').addEventListener('click', () => {
   if (confirm('End your day here and see how it went?')) endDay();
 });
-$('btn-again').addEventListener('click', () => showScreen('screen-start'));

@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
+  plugins: [svelte()],
+
   // Relative asset URLs, so the build works wherever it is served from —
   // GitHub Pages puts a project site under /<repo>/, a custom domain at the
   // root. Safe here because the app is a single page with no client-side
